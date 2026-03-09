@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Save Spritesheet</title>
+</head>
+<body>
+    <p>Right-click the image below and select "Save Image As..." to save it as "character_spritesheet.png"</p>
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABLAAAASwCAYAAADVF8T8AAAACXBIWXMAAArDAAAKwwEKp4fkAAAAGXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAIABJREFUeJzs3Qd8VFX+///32TvT0nsIhBZ6770XARUQEEGKgIqKIIgVe1t7W3v7qbuuq66rKAoqKoKKdAEBQXrvEEJLb5PMzO/8L/8/yiY3k0ky987t7+fjwQO" alt="Character Spritesheet">
+    <script>
+        // Auto-download the image
+        fetch(document.querySelector('img').src)
+            .then(res => res.blob())
+            .then(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'character_spritesheet.png';
+                a.click();
+            });
+    </script>
+</body>
+</html>
