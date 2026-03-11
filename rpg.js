@@ -644,16 +644,12 @@ const AREA_HEIGHT = 600;
 const TRANSITION_SIZE = 40; // pixels from edge
 
 // Game reset function - called when starting new game
+let _needsSpawnFix = false;
 function resetGameState() {
-  // Spawn player on the path between buildings (image-relative coords)
-  if (typeof villageToCanvas === 'function' && canvas.width > 0) {
-    const spawn = villageToCanvas(0.30, 0.78);
-    player.x = spawn.x;
-    player.y = spawn.y;
-  } else {
-    player.x = (canvas.width || AREA_WIDTH) / 2;
-    player.y = (canvas.height || AREA_HEIGHT) * 0.80;
-  }
+  // Place player at bottom-center of canvas (safe walkable area)
+  player.x = (canvas.width || AREA_WIDTH) / 2;
+  player.y = (canvas.height || AREA_HEIGHT) * 0.85;
+  _needsSpawnFix = true; // will reposition once canvas is confirmed ready
   player.hp = player.maxHp;
   currentArea = 'village';
   if (typeof npcs !== 'undefined') {
@@ -2969,25 +2965,39 @@ function updatePlayerMovement() {
   const speed = 2;
   const playerRadius = 15;
 
+  // If player is currently stuck inside a collision zone, let them move freely to escape
+  const stuck = isColliding(p.x, p.y, playerRadius);
+
   // Try to move in each direction independently to allow sliding along walls
   if (keys['ArrowUp'] || keys['w']) {
-    if (!isColliding(p.x, p.y - speed, playerRadius)) {
+    if (stuck || !isColliding(p.x, p.y - speed, playerRadius)) {
       p.y -= speed;
     }
   }
   if (keys['ArrowDown'] || keys['s']) {
-    if (!isColliding(p.x, p.y + speed, playerRadius)) {
+    if (stuck || !isColliding(p.x, p.y + speed, playerRadius)) {
       p.y += speed;
     }
   }
   if (keys['ArrowLeft'] || keys['a']) {
-    if (!isColliding(p.x - speed, p.y, playerRadius)) {
+    if (stuck || !isColliding(p.x - speed, p.y, playerRadius)) {
       p.x -= speed;
     }
   }
   if (keys['ArrowRight'] || keys['d']) {
-    if (!isColliding(p.x + speed, p.y, playerRadius)) {
+    if (stuck || !isColliding(p.x + speed, p.y, playerRadius)) {
       p.x += speed;
+    }
+  }
+
+  // Fix spawn position once canvas is ready
+  if (_needsSpawnFix && canvas.width > 100 && canvas.height > 100) {
+    _needsSpawnFix = false;
+    if (currentArea === 'village' && !insideBuilding) {
+      // Place at bottom center of canvas — always walkable
+      p.x = canvas.width / 2;
+      p.y = canvas.height * 0.85;
+      console.log(`[RPG] Spawn fixed to (${Math.round(p.x)}, ${Math.round(p.y)})`);
     }
   }
 
