@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <radialGradient id="lizSkin" cx="45%" cy="35%" r="75%"><stop offset="0" stop-color="#9bd8ff"/><stop offset=".6" stop-color="#4b7eba"/><stop offset="1" stop-color="#1d3150"/></radialGradient>
+    <linearGradient id="lizBelly" x1="52" y1="50" x2="78" y2="112" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#d9f0ff"/><stop offset="1" stop-color="#6ea3c8"/></linearGradient>
+    <filter id="lizSoft" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#07101c" flood-opacity=".56"/></filter>
+  </defs>
+  <ellipse cx="64" cy="116" rx="32" ry="8" fill="#07101c" opacity=".34"/>
+  <g filter="url(#lizSoft)">
+    <path d="M37 39c7-22 45-22 53 0 7 18 1 38-12 48-9 7-19 7-28 0-13-10-20-30-13-48z" fill="url(#lizSkin)"/>
+    <path d="M40 57c7-14 42-14 49 0 5 17 5 35 1 53-11 8-41 8-52 0-4-18-3-36 2-53z" fill="url(#lizSkin)"/>
+    <path d="M54 58h22l5 50c-8 5-25 5-33 0z" fill="url(#lizBelly)" opacity=".9"/>
+    <path d="M36 66c-8 7-11 18-9 29 5 2 10 1 14-4l5-27zM91 66c8 7 11 18 9 29-5 2-10 1-14-4l-5-27z" fill="#365c8f"/>
+    <path d="M50 91h12v26H48c-3-8-2-17 2-26zM66 91h12c4 8 5 17 2 26H66z" fill="#19253a"/>
+    <path d="M45 114c6 3 12 4 18 2l-2 6H42c0-3 1-6 3-8zM66 116c7 2 14 1 19-2 2 2 3 5 3 8H67z" fill="#07101c"/>
+    <path d="M50 22l4 12h-8zM64 20l4 14h-9zM78 22l4 12h-8z" fill="#c8efff"/>
+    <path d="M48 44c4-3 8-3 12 0M69 44c4-3 8-3 12 0" fill="none" stroke="#09111d" stroke-width="3" stroke-linecap="round"/>
+    <path d="M58 57c5 3 10 3 15 0" fill="none" stroke="#2f1b25" stroke-width="3" stroke-linecap="round"/>
+    <path d="M43 67c13 6 29 6 43 0" fill="none" stroke="#c8efff" stroke-width="3" opacity=".55"/>
+  </g>
+</svg>
