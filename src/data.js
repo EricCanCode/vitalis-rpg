@@ -1,19 +1,19 @@
 export const ASSETS = {
   town: 'assets/environment/town_hub.png',
   ruins: 'assets/intro/ruins.png',
-  heroKael: 'assets/sprites/hero_kael.png?v=motion2',
-  heroMira: 'assets/sprites/hero_mira.png?v=motion2',
-  heroRowan: 'assets/sprites/hero_rowan.png?v=motion2',
-  heroNyx: 'assets/sprites/hero_nyx.png?v=motion2',
-  heroKaelBattle: 'assets/sprites/hero_kael_battle.png?v=motion2',
-  heroMiraBattle: 'assets/sprites/hero_mira_battle.png?v=motion2',
-  heroRowanBattle: 'assets/sprites/hero_rowan_battle.png?v=motion2',
-  heroNyxBattle: 'assets/sprites/hero_nyx_battle.png?v=motion2',
-  villagerIdle: 'assets/sprites/villager_idle.png?v=motion2',
-  goblinIdle: 'assets/sprites/goblin_idle.png?v=motion2',
-  orcIdle: 'assets/sprites/orc_idle.png?v=motion2',
-  trollIdle: 'assets/sprites/troll_idle.png?v=motion2',
-  caveLizardIdle: 'assets/sprites/cave_lizard_idle.png?v=motion2'
+  heroKael: 'assets/sprites/hero_kael.png',
+  heroMira: 'assets/sprites/hero_mira.png',
+  heroRowan: 'assets/sprites/hero_rowan.png',
+  heroNyx: 'assets/sprites/hero_nyx.png',
+  heroKaelBattle: 'assets/sprites/hero_kael_battle.png',
+  heroMiraBattle: 'assets/sprites/hero_mira_battle.png',
+  heroRowanBattle: 'assets/sprites/hero_rowan_battle.png',
+  heroNyxBattle: 'assets/sprites/hero_nyx_battle.png',
+  villagerIdle: 'assets/sprites/villager_idle.png',
+  goblinIdle: 'assets/sprites/goblin_idle.png',
+  orcIdle: 'assets/sprites/orc_idle.png',
+  trollIdle: 'assets/sprites/troll_idle.png',
+  caveLizardIdle: 'assets/sprites/cave_lizard_idle.png'
 };
 
 export const CHARACTER_SPRITESHEET_FORMAT = {
