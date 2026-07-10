@@ -90,6 +90,11 @@ function mergeAreaProgress(freshProgress, save) {
   return merged;
 }
 
+export function markTitleSeen() {
+  gameState.titleSeen = true;
+  saveGame();
+}
+
 export function pushLog(message) {
   gameState.log.unshift(message);
   gameState.log = gameState.log.slice(0, 14);

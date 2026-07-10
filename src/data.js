@@ -159,6 +159,35 @@ export const LOOT_TABLES = {
   ]
 };
 
+export const INTRO_SCENES = [
+  {
+    type: 'fadeText',
+    text: ['The world was once whole.', 'A place where life and decay moved in balance.'],
+    duration: 5000
+  },
+  {
+    type: 'fadeText',
+    text: ['But the Blight came without warning.', 'It spread through soil, stone, and spirit...', '...until even the air began to rot.'],
+    duration: 7000
+  },
+  {
+    type: 'imageSlide',
+    imageKey: 'ruins',
+    text: ['Only a few remained untouched.', 'Those who carried the last spark of Vitalis.'],
+    duration: 6000
+  },
+  {
+    type: 'lightPulse',
+    text: ['And from that spark... a journey begins.'],
+    duration: 5000
+  },
+  {
+    type: 'title',
+    text: ['VITALIS'],
+    duration: 4000
+  }
+];
+
 export const STORY_EVENTS = [
   {
     id: 'prologue',

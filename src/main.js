@@ -30,6 +30,7 @@ import {
   usePotion,
   xpToNextLevel
 } from './state.js';
+import { IntroScene } from './intro.js';
 
 const hud = {
   root: document.getElementById('hud'),
@@ -2199,7 +2200,7 @@ const config = {
     width: '100%',
     height: '100%'
   },
-  scene: [BootScene, TownScene, BattleScene]
+  scene: [BootScene, IntroScene, TownScene, BattleScene]
 };
 
 new Phaser.Game(config);
