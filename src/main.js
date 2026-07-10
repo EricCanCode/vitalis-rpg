@@ -1,4 +1,4 @@
-import { AREAS, AREA_THEMES, ASSETS, ENEMY_TYPES, ITEMS, QUESTS, SPELLS, WEAPONS } from './data.js';
+import { AREAS, AREA_THEMES, ASSETS, CHARACTER_SPRITESHEET_FORMAT, CHARACTER_WALK_SHEETS, ENEMY_TYPES, ITEMS, QUESTS, SPELLS, WEAPONS } from './data.js';
 import {
   buyItem,
   buyPotion,
@@ -59,6 +59,48 @@ let expeditionAreaId = gameState.currentAreaId || 'forest_road';
 let lastAnimatedFxKey = '';
 let previewTargetId = null;
 let menuOpen = false;
+let townCollisionDebugVisible = false;
+const PLAYER_MOVE_SPEED = 170;
+const PLAYER_BODY = {
+  width: 22,
+  height: 14
+};
+const PLAYER_COLLISION_STEP = 4;
+const COLLISION_EDGE_GAP = 0.5;
+const TOWN_COLLISION_CONFIG = {
+  playableArea: {
+    label: 'townPlayableBounds',
+    left: 0.05,
+    top: 0.28,
+    right: 0.94,
+    bottom: 0.98
+  },
+  zones: [
+    // Tune each rectangle with canvas percentages:
+    // x = center position from left to right, y = center position from top to bottom.
+    // width = rectangle width, height = rectangle height.
+    { label: 'leftHouseWall', x: 0.08, y: 0.385, width: 0.145, height: 0.105 },
+    { label: 'leftHouseSteps', x: 0.13, y: 0.435, width: 0.06, height: 0.035 },
+    { label: 'leftHouseBarrel', x: 0.23, y: 0.405, width: 0.035, height: 0.05 },
+    { label: 'leftFence', x: 0.07, y: 0.53, width: 0.13, height: 0.05 },
+    { label: 'noticeBoard', x: 0.10, y: 0.64, width: 0.085, height: 0.105 },
+    { label: 'townHallCounter', x: 0.40, y: 0.34, width: 0.17, height: 0.07 },
+    { label: 'townHallDoorBase', x: 0.50, y: 0.35, width: 0.10, height: 0.11 },
+    { label: 'townHallCrates', x: 0.57, y: 0.35, width: 0.08, height: 0.10 },
+    { label: 'townHallLamp', x: 0.27, y: 0.36, width: 0.03, height: 0.10 },
+    { label: 'innWallBase', x: 0.78, y: 0.355, width: 0.16, height: 0.085 },
+    { label: 'innFrontCounter', x: 0.765, y: 0.445, width: 0.18, height: 0.06 },
+    { label: 'innRightAnnex', x: 0.905, y: 0.395, width: 0.08, height: 0.12 },
+    { label: 'innBarrels', x: 0.845, y: 0.485, width: 0.045, height: 0.045 },
+    { label: 'innLampPost', x: 0.69, y: 0.405, width: 0.02, height: 0.085 },
+    { label: 'southRockCluster', x: 0.45, y: 0.9, width: 0.2, height: 0.2 },
+    { label: 'workshopWallBase', x: 0.835, y: 0.65, width: 0.155, height: 0.095 },
+    { label: 'workshopForge', x: 0.795, y: 0.70, width: 0.095, height: 0.08 },
+    { label: 'workshopAnvil', x: 0.73, y: 0.72, width: 0.055, height: 0.055 },
+    { label: 'workshopRightWall', x: 0.915, y: 0.69, width: 0.06, height: 0.125 },
+    { label: 'workshopBarrels', x: 0.88, y: 0.765, width: 0.045, height: 0.055 }
+  ]
+};
 
 hud.continueGame.addEventListener('click', () => {
   hud.titleScreen.classList.add('hidden');
@@ -117,9 +159,11 @@ class BootScene extends Phaser.Scene {
     this.load.image('orcIdle', ASSETS.orcIdle);
     this.load.image('trollIdle', ASSETS.trollIdle);
     this.load.image('caveLizardIdle', ASSETS.caveLizardIdle);
+    loadCharacterWalkSheets(this);
   }
 
   create() {
+    createCharacterAnimations(this);
     this.scene.start(gameState.scene === 'battle' && gameState.battle ? 'BattleScene' : 'TownScene');
   }
 }
@@ -131,6 +175,7 @@ class TownScene extends Phaser.Scene {
 
   create() {
     currentScene = this;
+    configureTownPhysics(this);
     fitBackground(this, 'town');
     addAtmosphere(this);
     this.add.rectangle(this.scale.width * 0.5, this.scale.height * 0.58, this.scale.width * 0.58, this.scale.height * 0.42, 0xf0d689, 0.08);
@@ -138,6 +183,10 @@ class TownScene extends Phaser.Scene {
     addToken(this, this.scale.width * 0.18, this.scale.height * 0.48, 0xf3c65f, 'Quartermaster', 'villagerIdle', 0.72);
     addToken(this, this.scale.width * 0.77, this.scale.height * 0.48, 0xef6f6c, 'Innkeeper', 'villagerIdle', 0.72);
     addMapMarkers(this);
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.wasd = this.input.keyboard.addKeys('W,A,S,D');
+    this.input.keyboard.on('keydown-C', () => toggleTownCollisionDebug(this));
+    this.input.keyboard.on('keydown-F3', () => toggleTownCollisionDebug(this));
     this.add.text(this.scale.width * 0.5, this.scale.height * 0.82, 'Village Hub', {
       fontFamily: 'Georgia, serif',
       fontSize: '28px',
@@ -146,6 +195,10 @@ class TownScene extends Phaser.Scene {
       strokeThickness: 5
     }).setOrigin(0.5);
     renderHud('town');
+  }
+
+  update(time, delta) {
+    updateTownPlayer(this, delta);
   }
 }
 
@@ -224,9 +277,8 @@ function refreshBattleActors(scene) {
     const view = scene.partyViews[index];
     if (!view) return;
     view.setAlpha(member.hp > 0 ? 1 : 0.28);
-    const bob = Math.sin(scene.time.now / 300 + index * 0.85) * 2.2;
     view.x = (view.baseX || view.x) + (view.motionOffsetX || 0);
-    view.y = (view.baseY || view.y) + bob + (view.motionOffsetY || 0);
+    view.y = (view.baseY || view.y) + (view.motionOffsetY || 0);
     const targeted = member.hp > 0 && (previewTargetId === member.id || previewTargetId === 'allParty');
     const endangered = member.hp > 0 && member.hp / member.maxHp <= 0.35;
     view.targetRing?.setVisible(targeted);
@@ -239,9 +291,8 @@ function refreshBattleActors(scene) {
     const view = scene.enemyViews[index];
     if (!view) return;
     view.setAlpha(enemy.hp > 0 ? 1 : 0.18);
-    const bob = Math.sin(scene.time.now / 340 + index * 0.9) * 1.8;
     view.x = (view.baseX || view.x) + (view.motionOffsetX || 0);
-    view.y = (view.baseY || view.y) + bob + (view.motionOffsetY || 0);
+    view.y = (view.baseY || view.y) + (view.motionOffsetY || 0);
     const targeted = enemy.hp > 0 && (previewTargetId === enemy.id || previewTargetId === 'allEnemies');
     view.targetRing?.setVisible(targeted);
     view.targetGlow?.setVisible(targeted);
@@ -508,6 +559,273 @@ function fitBackground(scene, key, alpha = 1) {
   return image;
 }
 
+function loadCharacterWalkSheets(scene) {
+  Object.values(CHARACTER_WALK_SHEETS).forEach(sheet => {
+    if (!sheet.path) return;
+    scene.load.spritesheet(sheet.key, sheet.path, {
+      frameWidth: CHARACTER_SPRITESHEET_FORMAT.frameWidth,
+      frameHeight: CHARACTER_SPRITESHEET_FORMAT.frameHeight
+    });
+  });
+}
+
+function createCharacterAnimations(scene) {
+  Object.values(CHARACTER_WALK_SHEETS).forEach(sheet => {
+    if (!scene.textures.exists(sheet.key)) return;
+    CHARACTER_SPRITESHEET_FORMAT.directions.forEach(direction => {
+      const row = CHARACTER_SPRITESHEET_FORMAT.rows[direction];
+      const idleFrame = row * CHARACTER_SPRITESHEET_FORMAT.columns + CHARACTER_SPRITESHEET_FORMAT.idleColumn;
+      const walkFrames = CHARACTER_SPRITESHEET_FORMAT.walkColumns.map(column => row * CHARACTER_SPRITESHEET_FORMAT.columns + column);
+      scene.anims.create({
+        key: getCharacterAnimKey(sheet.key, 'idle', direction),
+        frames: [{ key: sheet.key, frame: idleFrame }],
+        frameRate: 1
+      });
+      scene.anims.create({
+        key: getCharacterAnimKey(sheet.key, 'walk', direction),
+        frames: walkFrames.map(frame => ({ key: sheet.key, frame })),
+        frameRate: 8,
+        repeat: -1
+      });
+    });
+  });
+}
+
+function createCharacterDisplay(scene, member, fallbackKey, y) {
+  const sheet = member ? CHARACTER_WALK_SHEETS[member.id] : null;
+  if (sheet && scene.textures.exists(sheet.key)) {
+    return scene.add.sprite(0, y, sheet.key, 0);
+  }
+  return scene.add.image(0, y, fallbackKey);
+}
+
+function updateTownPlayer(scene, delta) {
+  const view = scene.townPlayerView;
+  if (!view) return;
+  const input = getMovementInput(scene);
+  const moving = input.x !== 0 || input.y !== 0;
+  const velocity = getNormalizedPlayerVelocity(input);
+  view.body?.setVelocity(0, 0);
+  view.body?.setVelocityX(velocity.x);
+  view.body?.setVelocityY(velocity.y);
+  if (moving) {
+    moveTownPlayerWithVelocity(scene, view, velocity, delta);
+    view.facing = getFacingFromInput(input, view.facing || 'down');
+  }
+  playCharacterMotion(view, moving);
+  syncTownPlayerBody(view);
+  view.body?.setVelocity(0, 0);
+  view.baseX = view.x;
+  view.baseY = view.y;
+  view.setDepth(Math.round(view.y));
+}
+
+function getNormalizedPlayerVelocity(input) {
+  if (!input.x && !input.y) return { x: 0, y: 0 };
+  const length = Math.hypot(input.x, input.y) || 1;
+  return {
+    x: (input.x / length) * PLAYER_MOVE_SPEED,
+    y: (input.y / length) * PLAYER_MOVE_SPEED
+  };
+}
+
+function moveTownPlayerWithVelocity(scene, view, velocity, delta) {
+  const dx = velocity.x * (delta / 1000);
+  const dy = velocity.y * (delta / 1000);
+  const maxAxisDistance = Math.max(Math.abs(dx), Math.abs(dy));
+  const steps = Math.max(1, Math.ceil(maxAxisDistance / PLAYER_COLLISION_STEP));
+  const stepX = dx / steps;
+  const stepY = dy / steps;
+  for (let i = 0; i < steps; i += 1) {
+    moveTownPlayerAxis(scene, view, stepX, 0);
+    moveTownPlayerAxis(scene, view, 0, stepY);
+  }
+}
+
+function moveTownPlayerAxis(scene, view, dx, dy) {
+  if (!dx && !dy) return;
+  const previousX = view.x;
+  const previousY = view.y;
+  const bounds = scene.townBounds || getTownBounds(scene);
+  view.x = Phaser.Math.Clamp(view.x + dx, bounds.left, bounds.right);
+  view.y = Phaser.Math.Clamp(view.y + dy, bounds.top, bounds.bottom);
+  syncTownPlayerBody(view);
+  const obstacle = getOverlappingTownObstacle(scene, view);
+  if (obstacle) {
+    resolveTownObstacleCollision(view, obstacle, dx, dy, previousX, previousY);
+    view.x = Phaser.Math.Clamp(view.x, bounds.left, bounds.right);
+    view.y = Phaser.Math.Clamp(view.y, bounds.top, bounds.bottom);
+    syncTownPlayerBody(view);
+  }
+}
+
+function getOverlappingTownObstacle(scene, view) {
+  const playerRect = getTownPlayerBodyRect(view);
+  return scene.townObstacleBounds?.find(obstacle => rectsOverlap(playerRect, obstacle)) || null;
+}
+
+function getTownPlayerBodyRect(view) {
+  return {
+    left: view.x - PLAYER_BODY.width / 2,
+    right: view.x + PLAYER_BODY.width / 2,
+    top: view.y - PLAYER_BODY.height,
+    bottom: view.y
+  };
+}
+
+function rectsOverlap(a, b) {
+  return (
+    a.left < b.right - COLLISION_EDGE_GAP &&
+    a.right > b.left + COLLISION_EDGE_GAP &&
+    a.top < b.bottom - COLLISION_EDGE_GAP &&
+    a.bottom > b.top + COLLISION_EDGE_GAP
+  );
+}
+
+function resolveTownObstacleCollision(view, obstacle, dx, dy, previousX, previousY) {
+  if (dx > 0) view.x = obstacle.left - PLAYER_BODY.width / 2 - COLLISION_EDGE_GAP;
+  else if (dx < 0) view.x = obstacle.right + PLAYER_BODY.width / 2 + COLLISION_EDGE_GAP;
+  else view.x = previousX;
+
+  if (dy > 0) view.y = obstacle.top - COLLISION_EDGE_GAP;
+  else if (dy < 0) view.y = obstacle.bottom + PLAYER_BODY.height + COLLISION_EDGE_GAP;
+  else view.y = previousY;
+}
+
+function getMovementInput(scene) {
+  return {
+    x: (scene.cursors?.left.isDown || scene.wasd?.A.isDown ? -1 : 0) + (scene.cursors?.right.isDown || scene.wasd?.D.isDown ? 1 : 0),
+    y: (scene.cursors?.up.isDown || scene.wasd?.W.isDown ? -1 : 0) + (scene.cursors?.down.isDown || scene.wasd?.S.isDown ? 1 : 0)
+  };
+}
+
+function getFacingFromInput(input, fallback) {
+  if (Math.abs(input.x) > Math.abs(input.y)) return input.x < 0 ? 'left' : 'right';
+  if (input.y !== 0) return input.y < 0 ? 'up' : 'down';
+  return fallback;
+}
+
+function playCharacterMotion(view, moving) {
+  const sprite = view.sprite;
+  const sheetKey = view.walkSheetKey;
+  if (!sprite || !sheetKey || !sprite.scene.textures.exists(sheetKey)) return;
+  const direction = view.facing || 'down';
+  const state = moving ? 'walk' : 'idle';
+  const animationKey = getCharacterAnimKey(sheetKey, state, direction);
+  if (moving) sprite.play(animationKey, true);
+  else if (sprite.anims.currentAnim?.key !== animationKey) sprite.play(animationKey, true);
+}
+
+function getCharacterAnimKey(sheetKey, state, direction) {
+  return `${sheetKey}_${state}_${direction}`;
+}
+
+function enableTownPlayerBody(scene, view) {
+  if (!scene.physics?.add || !view) return;
+  scene.physics.add.existing(view);
+  view.body.setAllowGravity(false);
+  view.body.setImmovable(true);
+  view.body.setBounce(0);
+  view.body.setDrag(0, 0);
+  view.body.setVelocity(0, 0);
+  view.body.setSize(PLAYER_BODY.width, PLAYER_BODY.height);
+  view.body.setOffset(-PLAYER_BODY.width / 2, -PLAYER_BODY.height);
+  view.body.setCollideWorldBounds(true);
+  syncTownPlayerBody(view);
+}
+
+function syncTownPlayerBody(view) {
+  if (!view?.body) return;
+  view.body.position.x = view.x - PLAYER_BODY.width / 2;
+  view.body.position.y = view.y - PLAYER_BODY.height;
+  view.body.updateCenter();
+}
+
+function configureTownPhysics(scene) {
+  const bounds = getTownBounds(scene);
+  scene.townBounds = bounds;
+  scene.physics.world.setBounds(bounds.left, bounds.top, bounds.width, bounds.height);
+  scene.townObstacles = scene.physics.add.staticGroup();
+  scene.townObstacleBounds = [];
+  scene.townCollisionDebugViews = [];
+  addTownCollisionDebugView(scene, {
+    label: TOWN_COLLISION_CONFIG.playableArea.label,
+    x: (bounds.left + bounds.right) / 2,
+    y: (bounds.top + bounds.bottom) / 2,
+    width: bounds.width,
+    height: bounds.height,
+    color: 0x6fb7ff
+  });
+  TOWN_COLLISION_CONFIG.zones.forEach(zone => {
+    const rect = scene.add.rectangle(
+      scene.scale.width * zone.x,
+      scene.scale.height * zone.y,
+      scene.scale.width * zone.width,
+      scene.scale.height * zone.height
+    ).setVisible(false);
+    scene.townObstacles.add(rect);
+    rect.body.setSize(rect.width, rect.height);
+    rect.body.updateFromGameObject();
+    scene.townObstacleBounds.push({
+      label: zone.label,
+      left: rect.x - rect.width / 2,
+      right: rect.x + rect.width / 2,
+      top: rect.y - rect.height / 2,
+      bottom: rect.y + rect.height / 2
+    });
+    addTownCollisionDebugView(scene, {
+      label: zone.label,
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height,
+      color: 0xffdf7a
+    });
+  });
+  setTownCollisionDebugVisible(scene, townCollisionDebugVisible);
+}
+
+function getTownBounds(scene) {
+  const { playableArea } = TOWN_COLLISION_CONFIG;
+  const left = scene.scale.width * playableArea.left;
+  const top = scene.scale.height * playableArea.top;
+  const right = scene.scale.width * playableArea.right;
+  const bottom = scene.scale.height * playableArea.bottom;
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    width: right - left,
+    height: bottom - top
+  };
+}
+
+function addTownCollisionDebugView(scene, zone) {
+  const outline = scene.add.rectangle(zone.x, zone.y, zone.width, zone.height, zone.color, 0.08)
+    .setStrokeStyle(2, zone.color, 0.95)
+    .setDepth(10000)
+    .setVisible(false);
+  const label = scene.add.text(zone.x - zone.width / 2 + 6, zone.y - zone.height / 2 + 6, zone.label, {
+    fontFamily: 'Arial, sans-serif',
+    fontSize: '12px',
+    fontStyle: 'bold',
+    color: '#ffffff',
+    backgroundColor: 'rgba(0, 0, 0, 0.58)',
+    padding: { left: 5, right: 5, top: 2, bottom: 2 }
+  }).setDepth(10001).setVisible(false);
+  scene.townCollisionDebugViews.push(outline, label);
+}
+
+function toggleTownCollisionDebug(scene) {
+  townCollisionDebugVisible = !townCollisionDebugVisible;
+  setTownCollisionDebugVisible(scene, townCollisionDebugVisible);
+}
+
+function setTownCollisionDebugVisible(scene, visible) {
+  scene.townCollisionDebugViews?.forEach(view => view.setVisible(visible));
+}
+
 function addAtmosphere(scene) {
   scene.add.rectangle(0, 0, scene.scale.width, scene.scale.height, 0x0f1614, 0.18).setOrigin(0);
   scene.add.circle(scene.scale.width * 0.58, scene.scale.height * 0.18, 180, 0xfff0c0, 0.08);
@@ -522,15 +840,18 @@ function addTownParty(scene) {
   ];
   gameState.party.forEach((member, index) => {
     const [xPct, yPct] = positions[index];
-    const view = addToken(scene, scene.scale.width * xPct, scene.scale.height * yPct, null, member.name, member.spriteKey || 'heroKael', 0.7);
-    scene.tweens.add({
-      targets: view,
-      y: view.y - 4,
-      duration: 1150 + index * 130,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
+    const view = addToken(scene, scene.scale.width * xPct, scene.scale.height * yPct, null, member.name, member.spriteKey || 'heroKael', 0.7, {
+      member,
+      footAnchored: true
     });
+    view.baseX = view.x;
+    view.baseY = view.y;
+    view.facing = 'down';
+    view.isPlayableTownHero = index === 0;
+    if (index === 0) {
+      scene.townPlayerView = view;
+      enableTownPlayerBody(scene, view);
+    }
   });
 }
 
@@ -560,16 +881,19 @@ function addMapMarkers(scene) {
   });
 }
 
-function addToken(scene, x, y, color, label, spriteKey = 'heroKael', spriteScale = 0.65) {
+function addToken(scene, x, y, color, label, spriteKey = 'heroKael', spriteScale = 0.65, options = {}) {
   const container = scene.add.container(x, y);
-  const targetGlow = scene.add.circle(0, 0, 44, 0x66d17b, 0.16).setVisible(false);
-  const shadow = scene.add.ellipse(0, 34, 52, 16, 0x000000, 0.32);
-  const targetRing = scene.add.ellipse(0, 34, 72, 24)
+  const footY = options.footAnchored ? 0 : 34;
+  const spriteY = options.footAnchored ? 0 : -4;
+  const nameY = options.footAnchored ? 18 : 52;
+  const targetGlow = scene.add.circle(0, footY, 44, 0x66d17b, 0.16).setVisible(false);
+  const shadow = scene.add.ellipse(0, footY, 52, 16, 0x000000, 0.32);
+  const targetRing = scene.add.ellipse(0, footY, 72, 24)
     .setStrokeStyle(3, 0x66d17b, 0.92)
     .setVisible(false);
-  const sprite = scene.add.image(0, -4, spriteKey)
+  const sprite = createCharacterDisplay(scene, options.member, spriteKey, spriteY)
     .setScale(spriteScale);
-  sprite.setOrigin(0.5, 0.82);
+  sprite.setOrigin(0.5, options.footAnchored ? 1 : 0.82);
   if (color !== null && color !== undefined) sprite.setTint(color);
   const targetTag = scene.add.text(0, -112, 'ALLY', {
     fontFamily: 'Arial, sans-serif',
@@ -579,7 +903,7 @@ function addToken(scene, x, y, color, label, spriteKey = 'heroKael', spriteScale
     backgroundColor: '#66d17b',
     padding: { left: 7, right: 7, top: 3, bottom: 3 }
   }).setOrigin(0.5).setVisible(false);
-  const name = scene.add.text(0, 52, label, {
+  const name = scene.add.text(0, nameY, label, {
     fontFamily: 'Arial, sans-serif',
     fontSize: '13px',
     color: '#fff6de',
@@ -589,6 +913,8 @@ function addToken(scene, x, y, color, label, spriteKey = 'heroKael', spriteScale
   container.add([targetGlow, shadow, targetRing, sprite, name, targetTag]);
   container.sprite = sprite;
   container.baseTint = color || null;
+  container.walkSheetKey = options.member ? CHARACTER_WALK_SHEETS[options.member.id]?.key : null;
+  container.footAnchored = !!options.footAnchored;
   container.targetRing = targetRing;
   container.targetGlow = targetGlow;
   container.targetTag = targetTag;
@@ -1861,6 +2187,13 @@ const config = {
   type: Phaser.AUTO,
   parent: 'game-stage',
   backgroundColor: '#101918',
+  physics: {
+    default: 'arcade',
+    arcade: {
+      gravity: { y: 0 },
+      debug: false
+    }
+  },
   scale: {
     mode: Phaser.Scale.RESIZE,
     width: '100%',

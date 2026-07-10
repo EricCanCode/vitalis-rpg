@@ -16,6 +16,28 @@ export const ASSETS = {
   caveLizardIdle: 'assets/sprites/cave_lizard_idle.png?v=motion2'
 };
 
+export const CHARACTER_SPRITESHEET_FORMAT = {
+  frameWidth: 64,
+  frameHeight: 64,
+  columns: 4,
+  directions: ['down', 'left', 'right', 'up'],
+  rows: {
+    down: 0,
+    left: 1,
+    right: 2,
+    up: 3
+  },
+  idleColumn: 0,
+  walkColumns: [1, 2, 3]
+};
+
+export const CHARACTER_WALK_SHEETS = {
+  kael: { key: 'kaelWalk', expectedPath: 'assets/sprites/kael_walk.png', path: null },
+  mira: { key: 'miraWalk', expectedPath: 'assets/sprites/mira_walk.png', path: null },
+  rowan: { key: 'rowanWalk', expectedPath: 'assets/sprites/rowan_walk.png', path: null },
+  nyx: { key: 'nyxWalk', expectedPath: 'assets/sprites/nyx_walk.png', path: null }
+};
+
 export const WEAPONS = {
   iron_sword: { id: 'iron_sword', name: 'Iron Sword', type: 'weapon', atk: 4, mag: 0, cost: 0 },
   ember_staff: { id: 'ember_staff', name: 'Ember Staff', type: 'weapon', atk: 1, mag: 5, cost: 45 },
