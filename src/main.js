@@ -2199,9 +2199,13 @@ const config = {
     }
   },
   scale: {
-    mode: Phaser.Scale.RESIZE,
-    width: '100%',
-    height: '100%'
+    // Fixed logical resolution: every scene lays out against 1280x720 and
+    // Phaser letterboxes to the viewport. Collision zones stay truthful at
+    // any window size (Scale.RESIZE previously desynced them on resize).
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    width: 1280,
+    height: 720
   },
   scene: [BootScene, IntroScene, TownScene, BattleScene]
 };
