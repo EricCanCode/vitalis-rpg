@@ -179,7 +179,7 @@ class TownScene extends Phaser.Scene {
 
   create() {
     currentScene = this;
-    configureTownPhysics(this);
+    configureTownCollision(this);
     fitBackground(this, 'town');
     addAtmosphere(this);
     this.add.rectangle(this.scale.width * 0.5, this.scale.height * 0.58, this.scale.width * 0.58, this.scale.height * 0.42, 0xf0d689, 0.08);
@@ -608,17 +608,12 @@ function updateTownPlayer(scene, delta) {
   if (!view) return;
   const input = getMovementInput(scene);
   const moving = input.x !== 0 || input.y !== 0;
-  const velocity = getNormalizedPlayerVelocity(input);
-  view.body?.setVelocity(0, 0);
-  view.body?.setVelocityX(velocity.x);
-  view.body?.setVelocityY(velocity.y);
   if (moving) {
+    const velocity = getNormalizedPlayerVelocity(input);
     moveTownPlayerWithVelocity(scene, view, velocity, delta);
     view.facing = getFacingFromInput(input, view.facing || 'down');
   }
   playCharacterMotion(view, moving);
-  syncTownPlayerBody(view);
-  view.body?.setVelocity(0, 0);
   view.baseX = view.x;
   view.baseY = view.y;
   view.setDepth(Math.round(view.y));
@@ -653,13 +648,11 @@ function moveTownPlayerAxis(scene, view, dx, dy) {
   const bounds = scene.townBounds || getTownBounds(scene);
   view.x = Phaser.Math.Clamp(view.x + dx, bounds.left, bounds.right);
   view.y = Phaser.Math.Clamp(view.y + dy, bounds.top, bounds.bottom);
-  syncTownPlayerBody(view);
   const obstacle = getOverlappingTownObstacle(scene, view);
   if (obstacle) {
     resolveTownObstacleCollision(view, obstacle, dx, dy, previousX, previousY);
     view.x = Phaser.Math.Clamp(view.x, bounds.left, bounds.right);
     view.y = Phaser.Math.Clamp(view.y, bounds.top, bounds.bottom);
-    syncTownPlayerBody(view);
   }
 }
 
@@ -724,32 +717,9 @@ function getCharacterAnimKey(sheetKey, state, direction) {
   return `${sheetKey}_${state}_${direction}`;
 }
 
-function enableTownPlayerBody(scene, view) {
-  if (!scene.physics?.add || !view) return;
-  scene.physics.add.existing(view);
-  view.body.setAllowGravity(false);
-  view.body.setImmovable(true);
-  view.body.setBounce(0);
-  view.body.setDrag(0, 0);
-  view.body.setVelocity(0, 0);
-  view.body.setSize(PLAYER_BODY.width, PLAYER_BODY.height);
-  view.body.setOffset(-PLAYER_BODY.width / 2, -PLAYER_BODY.height);
-  view.body.setCollideWorldBounds(true);
-  syncTownPlayerBody(view);
-}
-
-function syncTownPlayerBody(view) {
-  if (!view?.body) return;
-  view.body.position.x = view.x - PLAYER_BODY.width / 2;
-  view.body.position.y = view.y - PLAYER_BODY.height;
-  view.body.updateCenter();
-}
-
-function configureTownPhysics(scene) {
+function configureTownCollision(scene) {
   const bounds = getTownBounds(scene);
   scene.townBounds = bounds;
-  scene.physics.world.setBounds(bounds.left, bounds.top, bounds.width, bounds.height);
-  scene.townObstacles = scene.physics.add.staticGroup();
   scene.townObstacleBounds = [];
   scene.townCollisionDebugViews = [];
   addTownCollisionDebugView(scene, {
@@ -761,28 +731,23 @@ function configureTownPhysics(scene) {
     color: 0x6fb7ff
   });
   TOWN_COLLISION_CONFIG.zones.forEach(zone => {
-    const rect = scene.add.rectangle(
-      scene.scale.width * zone.x,
-      scene.scale.height * zone.y,
-      scene.scale.width * zone.width,
-      scene.scale.height * zone.height
-    ).setVisible(false);
-    scene.townObstacles.add(rect);
-    rect.body.setSize(rect.width, rect.height);
-    rect.body.updateFromGameObject();
+    const centerX = scene.scale.width * zone.x;
+    const centerY = scene.scale.height * zone.y;
+    const width = scene.scale.width * zone.width;
+    const height = scene.scale.height * zone.height;
     scene.townObstacleBounds.push({
       label: zone.label,
-      left: rect.x - rect.width / 2,
-      right: rect.x + rect.width / 2,
-      top: rect.y - rect.height / 2,
-      bottom: rect.y + rect.height / 2
+      left: centerX - width / 2,
+      right: centerX + width / 2,
+      top: centerY - height / 2,
+      bottom: centerY + height / 2
     });
     addTownCollisionDebugView(scene, {
       label: zone.label,
-      x: rect.x,
-      y: rect.y,
-      width: rect.width,
-      height: rect.height,
+      x: centerX,
+      y: centerY,
+      width,
+      height,
       color: 0xffdf7a
     });
   });
@@ -852,10 +817,7 @@ function addTownParty(scene) {
     view.baseY = view.y;
     view.facing = 'down';
     view.isPlayableTownHero = index === 0;
-    if (index === 0) {
-      scene.townPlayerView = view;
-      enableTownPlayerBody(scene, view);
-    }
+    if (index === 0) scene.townPlayerView = view;
   });
 }
 
@@ -2191,13 +2153,6 @@ const config = {
   type: Phaser.AUTO,
   parent: 'game-stage',
   backgroundColor: '#101918',
-  physics: {
-    default: 'arcade',
-    arcade: {
-      gravity: { y: 0 },
-      debug: false
-    }
-  },
   scale: {
     // Fixed logical resolution: every scene lays out against 1280x720 and
     // Phaser letterboxes to the viewport. Collision zones stay truthful at
