@@ -24,7 +24,9 @@ function createAreaProgress() {
   return Object.fromEntries(AREAS.map(area => [area.id, { wins: 0, nextEncounter: 0, searched: false }]));
 }
 
-export let gameState = loadGame() || createGameState();
+const initialSave = loadGame();
+export const saveExistedAtBoot = !!initialSave;
+export let gameState = initialSave || createGameState();
 
 export function resetGame() {
   gameState = createGameState();

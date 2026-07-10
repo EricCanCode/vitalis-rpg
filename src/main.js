@@ -22,6 +22,7 @@ import {
   pushLog,
   resetGame,
   returnToTown,
+  saveExistedAtBoot,
   saveGame,
   scoutArea,
   searchAreaCache,
@@ -103,6 +104,8 @@ const TOWN_COLLISION_CONFIG = {
   ]
 };
 
+hud.continueGame.hidden = !saveExistedAtBoot;
+
 hud.continueGame.addEventListener('click', () => {
   hud.titleScreen.classList.add('hidden');
 });
@@ -113,7 +116,7 @@ hud.newGameTitle.addEventListener('click', () => {
   townPanelMode = 'map';
   menuOpen = false;
   hud.titleScreen.classList.add('hidden');
-  currentScene?.scene.start('TownScene');
+  currentScene?.scene.start('IntroScene');
 });
 
 hud.reset.addEventListener('click', () => {
@@ -2203,4 +2206,6 @@ const config = {
   scene: [BootScene, IntroScene, TownScene, BattleScene]
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+// Debug/testing handle: lets tooling drive or inspect the game loop.
+window.__VITALIS_GAME__ = game;
