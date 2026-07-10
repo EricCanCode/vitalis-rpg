@@ -69,6 +69,16 @@ const PLAYER_BODY = {
 };
 const PLAYER_COLLISION_STEP = 4;
 const COLLISION_EDGE_GAP = 0.5;
+const TOWN_INTERACT_RADIUS = 90;
+const TOWN_NPCS = [
+  { panel: 'npc:quartermaster', name: 'Quartermaster', x: 0.18, y: 0.48, tint: 0xf3c65f },
+  { panel: 'npc:innkeeper', name: 'Innkeeper', x: 0.77, y: 0.48, tint: 0xef6f6c }
+];
+const TOWN_MAP_MARKERS = [
+  ['forest_road', 0.35, 0.31],
+  ['old_ruins', 0.62, 0.35],
+  ['crystal_cave', 0.78, 0.64]
+];
 const TOWN_COLLISION_CONFIG = {
   playableArea: {
     label: 'townPlayableBounds',
@@ -184,13 +194,16 @@ class TownScene extends Phaser.Scene {
     addAtmosphere(this);
     this.add.rectangle(this.scale.width * 0.5, this.scale.height * 0.58, this.scale.width * 0.58, this.scale.height * 0.42, 0xf0d689, 0.08);
     addTownParty(this);
-    addToken(this, this.scale.width * 0.18, this.scale.height * 0.48, 0xf3c65f, 'Quartermaster', 'villagerIdle', 0.72);
-    addToken(this, this.scale.width * 0.77, this.scale.height * 0.48, 0xef6f6c, 'Innkeeper', 'villagerIdle', 0.72);
+    TOWN_NPCS.forEach(npc => {
+      addToken(this, this.scale.width * npc.x, this.scale.height * npc.y, npc.tint, npc.name, 'villagerIdle', 0.72);
+    });
     addMapMarkers(this);
+    setupTownInteractables(this);
     this.cursors = this.input.keyboard.createCursorKeys();
     this.wasd = this.input.keyboard.addKeys('W,A,S,D');
     this.input.keyboard.on('keydown-C', () => toggleTownCollisionDebug(this));
     this.input.keyboard.on('keydown-F3', () => toggleTownCollisionDebug(this));
+    this.input.keyboard.on('keydown-E', () => activateTownInteractable(this));
     this.add.text(this.scale.width * 0.5, this.scale.height * 0.82, 'Village Hub', {
       fontFamily: 'Georgia, serif',
       fontSize: '28px',
@@ -203,6 +216,7 @@ class TownScene extends Phaser.Scene {
 
   update(time, delta) {
     updateTownPlayer(this, delta);
+    updateTownInteractions(this);
   }
 }
 
@@ -786,6 +800,70 @@ function addTownCollisionDebugView(scene, zone) {
   scene.townCollisionDebugViews.push(outline, label);
 }
 
+function setupTownInteractables(scene) {
+  scene.townInteractables = [];
+  TOWN_NPCS.forEach(npc => {
+    scene.townInteractables.push({
+      x: scene.scale.width * npc.x,
+      y: scene.scale.height * npc.y,
+      label: `Talk to ${npc.name}`,
+      panel: npc.panel,
+      locked: false
+    });
+  });
+  TOWN_MAP_MARKERS.forEach(([areaId, xPct, yPct]) => {
+    const area = AREAS.find(entry => entry.id === areaId);
+    scene.townInteractables.push({
+      x: scene.scale.width * xPct,
+      y: scene.scale.height * yPct,
+      label: area.name,
+      panel: `expedition:${areaId}`,
+      areaId,
+      locked: !isAreaUnlocked(areaId)
+    });
+  });
+  scene.activeInteractable = null;
+  scene.interactPrompt = scene.add.text(0, 0, '', {
+    fontFamily: 'Arial, sans-serif',
+    fontSize: '13px',
+    fontStyle: 'bold',
+    color: '#17120a',
+    backgroundColor: '#ffdf7a',
+    padding: { left: 8, right: 8, top: 4, bottom: 4 }
+  }).setOrigin(0.5).setDepth(9000).setVisible(false);
+}
+
+function updateTownInteractions(scene) {
+  const view = scene.townPlayerView;
+  if (!view || !scene.interactPrompt) return;
+  let nearest = null;
+  let nearestDistance = TOWN_INTERACT_RADIUS;
+  scene.townInteractables?.forEach(entry => {
+    const distance = Phaser.Math.Distance.Between(view.x, view.y, entry.x, entry.y);
+    if (distance < nearestDistance) {
+      nearest = entry;
+      nearestDistance = distance;
+    }
+  });
+  scene.activeInteractable = nearest && !nearest.locked ? nearest : null;
+  if (!nearest) {
+    scene.interactPrompt.setVisible(false);
+    return;
+  }
+  scene.interactPrompt
+    .setText(nearest.locked ? `${nearest.label} (locked)` : `E - ${nearest.label}`)
+    .setPosition(nearest.x, nearest.y - 56)
+    .setVisible(true);
+}
+
+function activateTownInteractable(scene) {
+  const target = scene.activeInteractable;
+  if (!target || gameState.scene !== 'town') return;
+  if (target.areaId) expeditionAreaId = target.areaId;
+  townPanelMode = target.panel;
+  renderHud('town');
+}
+
 function toggleTownCollisionDebug(scene) {
   townCollisionDebugVisible = !townCollisionDebugVisible;
   setTownCollisionDebugVisible(scene, townCollisionDebugVisible);
@@ -822,12 +900,7 @@ function addTownParty(scene) {
 }
 
 function addMapMarkers(scene) {
-  const markers = [
-    ['forest_road', 0.35, 0.31],
-    ['old_ruins', 0.62, 0.35],
-    ['crystal_cave', 0.78, 0.64]
-  ];
-  markers.forEach(([areaId, xPct, yPct]) => {
+  TOWN_MAP_MARKERS.forEach(([areaId, xPct, yPct]) => {
     const area = AREAS.find(entry => entry.id === areaId);
     const unlocked = isAreaUnlocked(areaId);
     const progress = getQuestProgress(area.questId);
