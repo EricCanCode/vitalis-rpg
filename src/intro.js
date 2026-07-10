@@ -15,6 +15,10 @@ export class IntroScene extends Phaser.Scene {
   }
 
   create() {
+    const data = this.scene.settings.data || {};
+    this.beats = data.beats || INTRO_SCENES;
+    this.nextScene = data.next || 'TownScene';
+    this.isPrologue = !data.beats;
     this.cameras.main.setBackgroundColor('#000000');
     this.finished = false;
     this.beatIndex = -1;
@@ -38,7 +42,7 @@ export class IntroScene extends Phaser.Scene {
 
   update(time, delta) {
     if (this.finished) return;
-    const beat = INTRO_SCENES[this.beatIndex];
+    const beat = this.beats[this.beatIndex];
     if (!beat) return;
     this.beatTimer += delta;
     this.applyBeatEffects(beat);
@@ -46,10 +50,10 @@ export class IntroScene extends Phaser.Scene {
   }
 
   advanceBeat() {
-    this.clearBeat();
+    this.clearBeat(true);
     this.beatIndex += 1;
     this.beatTimer = 0;
-    const beat = INTRO_SCENES[this.beatIndex];
+    const beat = this.beats[this.beatIndex];
     if (!beat) {
       this.finish();
       return;
@@ -60,11 +64,22 @@ export class IntroScene extends Phaser.Scene {
     else if (beat.type === 'title') this.buildTitle(beat);
   }
 
-  clearBeat() {
-    this.beatObjects.forEach(object => object.destroy());
+  clearBeat(soft = false) {
+    const outgoing = this.beatObjects;
     this.beatObjects = [];
     this.fadeTargets = [];
     this.pulseOverlay = null;
+    if (soft && outgoing.length) {
+      this.tweens.add({
+        targets: outgoing,
+        alpha: 0,
+        duration: 320,
+        ease: 'Sine.easeIn',
+        onComplete: () => outgoing.forEach(object => object.destroy())
+      });
+      return;
+    }
+    outgoing.forEach(object => object.destroy());
   }
 
   applyBeatEffects(beat) {
@@ -140,6 +155,16 @@ export class IntroScene extends Phaser.Scene {
     title.setShadow(0, 0, '#ff8c00', 30, true, true);
     this.beatObjects.push(title);
     this.fadeTargets.push(title);
+    if (beat.text[1]) {
+      const subtitle = this.add.text(this.scale.width / 2, this.scale.height / 2 + 64, beat.text[1], {
+        fontFamily: 'Georgia, serif',
+        fontSize: '22px',
+        color: '#d8cfb7',
+        align: 'center'
+      }).setOrigin(0.5).setAlpha(0);
+      this.beatObjects.push(subtitle);
+      this.fadeTargets.push(subtitle);
+    }
   }
 
   addSkipHint() {
@@ -153,9 +178,9 @@ export class IntroScene extends Phaser.Scene {
   finish() {
     if (this.finished) return;
     this.finished = true;
-    markTitleSeen();
+    if (this.isPrologue) markTitleSeen();
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.scene.start('TownScene');
+      this.scene.start(this.nextScene);
     });
     this.cameras.main.fadeOut(400, 0, 0, 0);
   }

@@ -1,4 +1,4 @@
-import { AREAS, AREA_THEMES, ASSETS, CHARACTER_SPRITESHEET_FORMAT, CHARACTER_WALK_SHEETS, ENEMY_TYPES, ITEMS, QUESTS, SPELLS, WEAPONS } from './data.js';
+import { AREAS, AREA_THEMES, ASSETS, CHARACTER_SPRITESHEET_FORMAT, CHARACTER_WALK_SHEETS, ENDING_SCENES, ENEMY_TYPES, ITEMS, QUESTS, SPELLS, WEAPONS } from './data.js';
 import {
   buyItem,
   buyPotion,
@@ -18,6 +18,7 @@ import {
   getWeapon,
   guard,
   isAreaUnlocked,
+  markEndingSeen,
   partyAttack,
   pushLog,
   resetGame,
@@ -1887,6 +1888,16 @@ function getVictoryMessage(area, progress) {
 }
 
 function addVictoryChoices(area, progress) {
+  if (progress?.complete && area?.questId === 'claim-crystal' && !gameState.endingSeen) {
+    addVictoryButton('Witness the First Light', () => {
+      hideVictoryOverlay();
+      returnToTown();
+      markEndingSeen();
+      townPanelMode = 'map';
+      menuOpen = false;
+      currentScene.scene.start('IntroScene', { beats: ENDING_SCENES, next: 'TownScene' });
+    }, 'primary');
+  }
   if (area && !shouldRecommendRest() && !progress?.complete) {
     addVictoryButton('Continue Path', () => {
       hideVictoryOverlay();

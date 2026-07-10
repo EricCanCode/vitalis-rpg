@@ -188,6 +188,35 @@ export const INTRO_SCENES = [
   }
 ];
 
+export const ENDING_SCENES = [
+  {
+    type: 'fadeText',
+    text: ['The shard is small.', 'Warm as a held breath.'],
+    duration: 4200
+  },
+  {
+    type: 'fadeText',
+    text: ['It is not enough to heal the world.', 'It is enough to prove the world can heal.'],
+    duration: 5200
+  },
+  {
+    type: 'imageSlide',
+    imageKey: 'town',
+    text: ['The lanterns of the village burn brighter tonight.'],
+    duration: 5000
+  },
+  {
+    type: 'lightPulse',
+    text: ['The light answers. The road goes on.'],
+    duration: 4200
+  },
+  {
+    type: 'title',
+    text: ['VITALIS', 'Chapter One complete'],
+    duration: 4500
+  }
+];
+
 export const STORY_EVENTS = [
   {
     id: 'prologue',

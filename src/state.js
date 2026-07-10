@@ -16,6 +16,7 @@ export function createGameState() {
     bestiary: {},
     storyEvents: ['prologue'],
     titleSeen: false,
+    endingSeen: false,
     log: ['The party gathers in the village. The road beyond is restless.']
   };
 }
@@ -96,6 +97,14 @@ export function markTitleSeen() {
   gameState.titleSeen = true;
   saveGame();
 }
+
+export function markEndingSeen() {
+  gameState.endingSeen = true;
+  saveGame();
+}
+
+// Debug/testing handle: lets tooling read the live state object.
+if (typeof window !== 'undefined') window.__VITALIS_STATE__ = () => gameState;
 
 export function pushLog(message) {
   gameState.log.unshift(message);
