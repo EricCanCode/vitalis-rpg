@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vitalis RPG</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Title Screen -->
+  <div id="titleScreen" class="rpg-screen active">
+    <div class="rpg-screen-content">
+      <h1 class="rpg-game-logo">VITALIS</h1>
+      <p class="rpg-game-subtitle">RPG Adventure</p>
+      <div class="rpg-menu-buttons">
+        <button id="startGameBtn" class="rpg-menu-button">Start Game</button>
+        <button id="howToPlayBtn" class="rpg-menu-button">How to Play</button>
+        <button id="settingsBtn" class="rpg-menu-button">Settings</button>
+        <button id="creditsBtn" class="rpg-menu-button">Credits</button>
+      </div>
+    </div>
+
+    <!-- How to Play Modal -->
+    <div id="howToPlayPanel" class="rpg-modal-panel">
+      <div class="rpg-modal-content">
+        <div class="rpg-modal-header">
+          <h2>How to Play</h2>
+          <button id="closeHowToPlay" class="rpg-modal-close">✕</button>
+        </div>
+        <div class="rpg-modal-body">
+          <h3>Controls</h3>
+          <p><strong>Movement:</strong> Arrow Keys or WASD</p>
+          <p><strong>Attack:</strong> Click on enemies or press Space</p>
+          <p><strong>Spells:</strong> F = Fireball, L = Lightning</p>
+          <p><strong>Inventory:</strong> I key or Inventory button</p>
+          
+          <h3>Gameplay</h3>
+          <p>Defeat enemies to gain experience and loot. Collect items and equipment to become stronger. Find stronger enemies as you progress.</p>
+          
+          <h3>Tips</h3>
+          <p>• Use spells to damage multiple enemies at once</p>
+          <p>• Equip better gear to increase your stats</p>
+          <p>• Watch your health and heal when needed</p>
+          <p>• Explore different areas to find rare items</p>
+        </div>
+        <button id="closeHowToPlayBtn" class="rpg-btn-primary">Close</button>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsPanel" class="rpg-modal-panel">
+      <div class="rpg-modal-content">
+        <div class="rpg-modal-header">
+          <h2>Settings</h2>
+          <button id="closeSettings" class="rpg-modal-close">✕</button>
+        </div>
+        <div class="rpg-modal-body">
+          <div class="rpg-settings-group">
+            <label class="rpg-settings-label">
+              <input type="checkbox" id="soundCheckbox" checked>
+              <span>Sound Effects</span>
+            </label>
+            <label class="rpg-settings-label">
+              <input type="checkbox" id="musicCheckbox" checked>
+              <span>Background Music</span>
+            </label>
+            <label class="rpg-settings-label">
+              <input type="checkbox" id="effectsCheckbox" checked>
+              <span>Visual Effects</span>
+            </label>
+          </div>
+          <div class="rpg-difficulty-group">
+            <h3>Difficulty</h3>
+            <label class="rpg-radio-label">
+              <input type="radio" name="difficulty" value="easy" checked>
+              <span>Easy</span>
+            </label>
+            <label class="rpg-radio-label">
+              <input type="radio" name="difficulty" value="normal">
+              <span>Normal</span>
+            </label>
+            <label class="rpg-radio-label">
+              <input type="radio" name="difficulty" value="hard">
+              <span>Hard</span>
+            </label>
+          </div>
+        </div>
+        <button id="closeSettingsBtn" class="rpg-btn-primary">Close</button>
+      </div>
+    </div>
+
+    <!-- Credits Modal -->
+    <div id="creditsPanel" class="rpg-modal-panel">
+      <div class="rpg-modal-content">
+        <div class="rpg-modal-header">
+          <h2>Credits</h2>
+          <button id="closeCredits" class="rpg-modal-close">✕</button>
+        </div>
+        <div class="rpg-modal-body">
+          <h3>Vitalis RPG</h3>
+          <p><strong>Game Development:</strong> Created with HTML5 Canvas</p>
+          <p><strong>Graphics:</strong> Sprite-based pixel art</p>
+          <p><strong>Audio:</strong> Web Audio API</p>
+          <p style="margin-top:20px;opacity:0.8;"><em>Thank you for playing!</em></p>
+        </div>
+        <button id="closeCreditsBtn" class="rpg-btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="gameContainer" style="display:none;">
+    <div class="info-bar-hud" role="region" aria-label="Player Stats HUD">
+      <div class="inventory-info-bar" style="display:flex;flex-wrap:nowrap;gap:32px;align-items:center;">
+        <div class="hp-bar-block" aria-label="Health Points" tabindex="0" style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
+          <div class="hp-bar-container" style="display:flex;align-items:center;white-space:nowrap;">
+            <div class="hp-label-inline"><span aria-label="Health Points" title="Health Points">HP</span>&nbsp;&nbsp;<span id="hpValue" class="hp-value-inline" aria-live="polite">0 / 0</span></div>
+          </div>
+        </div>
+        <div class="xp-block" aria-label="Experience Points" tabindex="0" style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
+          <span class="xp-xpicon" aria-label="XP Icon" title="Experience Points"></span>
+          <span class="xp-label" aria-label="Experience Points" title="Experience Points">XP</span>
+          <span id="xpXpValue" class="xp-xpvalue" aria-live="polite">0</span>
+        </div>
+        <div class="gems-block" aria-label="Gems" tabindex="0" style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
+          <span class="xp-icon" aria-label="Gems Icon" title="Gems"></span>
+          <span class="gems-label" aria-label="Gems" title="Gems">Gems</span>
+          <span id="xpValue" class="gems-value" aria-live="polite">0</span>
+        </div>
+        <div class="coin-block" aria-label="Coins" tabindex="0" style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
+          <span class="coin-icon" aria-label="Coins Icon" title="Coins"></span>
+          <span class="coin-label" aria-label="Coins" title="Coins">Coins</span>
+          <span id="coinValue" class="coin-value" aria-live="polite">0</span>
+        </div>
+      </div>
+    </div>
+    <div class="canvas-wrapper" style="width:100%;height:100%;background:#000;overflow:hidden;flex:1;">
+      <canvas id="gameCanvas" style="display:block;width:100%;height:100%;"></canvas>
+      <canvas id="minimap" width="120" height="80" style="position:absolute;top:18px;right:18px;width:120px;height:80px;z-index:100;"></canvas>
+    </div>
+    <div class="button-row">
+    <div id="uiContainer">
+      <!-- Inventory Slide Panel -->
+      <div id="inventorySlidePanel" class="inventory-slide-panel">
+        <div class="inventory-panel-layout">
+          <div class="inventory-tabs-vertical">
+            <button class="inventory-tab-vertical" onclick="showInventoryTab('items')" aria-label="Items Tab" title="View Items">Items</button>
+            <button class="inventory-tab-vertical" onclick="showInventoryTab('equipment')" aria-label="Equipment Tab" title="View Equipment">Equipment</button>
+            <button class="inventory-tab-vertical" onclick="showInventoryTab('abilities')" aria-label="Abilities Tab" title="View Abilities">Abilities</button>
+            <button class="inventory-tab-vertical" onclick="showInventoryTab('quests')" aria-label="Quests Tab" title="View Quests">Quests</button>
+            <button class="inventory-tab-vertical close" onclick="closeInventoryPanel()" aria-label="Close Inventory" title="Close Inventory">×</button>
+          </div>
+          <div class="inventory-main-content">
+            <div id="characterPreview" class="character-preview"></div>
+            <div id="inventoryTabContent" class="inventory-tab-content"></div>
+            <button class="quest-status-btn" onclick="showInventoryTab('quests')" aria-label="Quest Status" title="View Quest Status">To Quest Status</button>
+          </div>
+        </div>
+      </div>
+      <button id="openInventoryBtn" class="rpg-btn" style="position:fixed;bottom:32px;right:32px;z-index:100;" aria-label="Open Inventory" title="Open Inventory">Inventory</button>
+    </div>
+  </div>
+  <div id="onlineContainer" style="width:96vw;max-width:480px;margin:0 auto 12px auto;">
+    <div id="leaderboardPanel" style="background:#232323cc;border-radius:10px;padding:8px 12px;margin-bottom:8px;display:none;" aria-label="Leaderboard" title="Leaderboard"></div>
+    <div id="coopPanel" style="background:#232323cc;border-radius:10px;padding:8px 12px;margin-bottom:8px;display:none;" aria-label="Co-op Panel" title="Co-op Panel"></div>
+    <div id="chatPanel" style="background:#232323cc;border-radius:10px;padding:8px 12px;margin-bottom:8px;display:none;" aria-label="Chat Panel" title="Chat Panel"></div>
+  </div>
+  <script src="intro.js"></script>
+  <script src="battle.js"></script>
+  <script src="rpg-menu.js"></script>
+  <script src="rpg.js"></script>
+  <script>
+    window.onload = function() {
+      if (typeof updateUI === 'function') {
+        updateUI();
+      }
+    };
+  </script>
+</body>
+</html>
