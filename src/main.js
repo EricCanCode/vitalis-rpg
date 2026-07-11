@@ -236,7 +236,7 @@ class BattleScene extends Phaser.Scene {
     const area = getBattleArea();
     const theme = getAreaTheme(area?.id);
     this.cameras.main.setBackgroundColor('#101918');
-    fitBackground(this, theme.battleKey, area?.id === 'forest_road' ? 0.58 : 0.5);
+    fitBackground(this, theme.battleKey, theme.battleAlpha ?? 0.5);
     this.add.rectangle(0, 0, this.scale.width, this.scale.height, theme.tint, theme.tintAlpha).setOrigin(0);
     this.add.rectangle(this.scale.width * 0.5, this.scale.height * 0.72, this.scale.width, 230, theme.ground, 0.74);
     this.add.rectangle(this.scale.width * 0.5, this.scale.height * 0.78, this.scale.width, 3, theme.accent, 0.28);

@@ -86,7 +86,8 @@ export const ABILITY_UNLOCKS = [
 
 export const AREA_THEMES = {
   forest_road: {
-    battleKey: 'town',
+    battleKey: 'battleForest',
+    battleAlpha: 0.92,
     tint: 0x1d3324,
     tintAlpha: 0.24,
     ground: 0x17211f,
@@ -95,6 +96,7 @@ export const AREA_THEMES = {
   },
   old_ruins: {
     battleKey: 'ruins',
+    battleAlpha: 0.5,
     tint: 0x2a231e,
     tintAlpha: 0.34,
     ground: 0x17120f,
@@ -102,7 +104,8 @@ export const AREA_THEMES = {
     note: 'Broken stone. Orcs brace and hit harder.'
   },
   crystal_cave: {
-    battleKey: 'ruins',
+    battleKey: 'battleCave',
+    battleAlpha: 0.92,
     tint: 0x12263b,
     tintAlpha: 0.44,
     ground: 0x101926,
