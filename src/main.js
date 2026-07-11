@@ -274,7 +274,7 @@ function renderBattleActors(scene) {
     const [xPct, yPct] = partyPositions[index] || [0.18 + index * 0.08, 0.68];
     const x = scene.scale.width * xPct;
     const y = scene.scale.height * yPct;
-    const view = addToken(scene, x, y, null, member.name, member.spriteKey || 'heroKael', 0.7);
+    const view = addToken(scene, x, y, null, member.name, member.battleSpriteKey || member.spriteKey || 'heroKael', 0.7);
     view.baseX = x;
     view.baseY = y;
     view.actorId = member.id;
