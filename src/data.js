@@ -1,6 +1,8 @@
 export const ASSETS = {
   town: 'assets/environment/town_hub.png',
   ruins: 'assets/intro/ruins.png',
+  battleForest: 'assets/environment/battle_forest.png',
+  battleCave: 'assets/environment/battle_cave.png',
   heroKael: 'assets/sprites/hero_kael.png',
   heroMira: 'assets/sprites/hero_mira.png',
   heroRowan: 'assets/sprites/hero_rowan.png',
@@ -32,10 +34,17 @@ export const CHARACTER_SPRITESHEET_FORMAT = {
 };
 
 export const CHARACTER_WALK_SHEETS = {
-  kael: { key: 'kaelWalk', expectedPath: 'assets/sprites/kael_walk.png', path: null },
-  mira: { key: 'miraWalk', expectedPath: 'assets/sprites/mira_walk.png', path: null },
-  rowan: { key: 'rowanWalk', expectedPath: 'assets/sprites/rowan_walk.png', path: null },
-  nyx: { key: 'nyxWalk', expectedPath: 'assets/sprites/nyx_walk.png', path: null }
+  kael: { key: 'kaelWalk', path: 'assets/sprites/kael_walk.png' },
+  mira: { key: 'miraWalk', path: 'assets/sprites/mira_walk.png' },
+  rowan: { key: 'rowanWalk', path: 'assets/sprites/rowan_walk.png' },
+  nyx: { key: 'nyxWalk', path: 'assets/sprites/nyx_walk.png' }
+};
+
+// Enemy idle sheets are 2 frames of 128x128 (subtle breathing motion).
+export const ENEMY_IDLE_FORMAT = {
+  frameWidth: 128,
+  frameHeight: 128,
+  frameRate: 1.6
 };
 
 export const WEAPONS = {

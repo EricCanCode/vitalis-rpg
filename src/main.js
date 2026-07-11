@@ -1,4 +1,4 @@
-import { AREAS, AREA_THEMES, ASSETS, CHARACTER_SPRITESHEET_FORMAT, CHARACTER_WALK_SHEETS, ENDING_SCENES, ENEMY_TYPES, ITEMS, QUESTS, SPELLS, WEAPONS } from './data.js';
+import { AREAS, AREA_THEMES, ASSETS, CHARACTER_SPRITESHEET_FORMAT, CHARACTER_WALK_SHEETS, ENDING_SCENES, ENEMY_IDLE_FORMAT, ENEMY_TYPES, ITEMS, QUESTS, SPELLS, WEAPONS } from './data.js';
 import {
   buyItem,
   buyPotion,
@@ -161,6 +161,8 @@ class BootScene extends Phaser.Scene {
   preload() {
     this.load.image('town', ASSETS.town);
     this.load.image('ruins', ASSETS.ruins);
+    this.load.image('battleForest', ASSETS.battleForest);
+    this.load.image('battleCave', ASSETS.battleCave);
     this.load.image('heroKael', ASSETS.heroKael);
     this.load.image('heroMira', ASSETS.heroMira);
     this.load.image('heroRowan', ASSETS.heroRowan);
@@ -170,15 +172,18 @@ class BootScene extends Phaser.Scene {
     this.load.image('heroRowanBattle', ASSETS.heroRowanBattle);
     this.load.image('heroNyxBattle', ASSETS.heroNyxBattle);
     this.load.image('villagerIdle', ASSETS.villagerIdle);
-    this.load.image('goblinIdle', ASSETS.goblinIdle);
-    this.load.image('orcIdle', ASSETS.orcIdle);
-    this.load.image('trollIdle', ASSETS.trollIdle);
-    this.load.image('caveLizardIdle', ASSETS.caveLizardIdle);
+    ['goblinIdle', 'orcIdle', 'trollIdle', 'caveLizardIdle'].forEach(key => {
+      this.load.spritesheet(key, ASSETS[key], {
+        frameWidth: ENEMY_IDLE_FORMAT.frameWidth,
+        frameHeight: ENEMY_IDLE_FORMAT.frameHeight
+      });
+    });
     loadCharacterWalkSheets(this);
   }
 
   create() {
     createCharacterAnimations(this);
+    createEnemyIdleAnimations(this);
     this.scene.start(gameState.scene === 'battle' && gameState.battle ? 'BattleScene' : 'TownScene');
   }
 }
@@ -610,10 +615,26 @@ function createCharacterAnimations(scene) {
   });
 }
 
+function createEnemyIdleAnimations(scene) {
+  ['goblinIdle', 'orcIdle', 'trollIdle', 'caveLizardIdle'].forEach(key => {
+    if (!scene.textures.exists(key)) return;
+    scene.anims.create({
+      key: `${key}_breathe`,
+      frames: [{ key, frame: 0 }, { key, frame: 1 }],
+      frameRate: ENEMY_IDLE_FORMAT.frameRate,
+      yoyo: true,
+      repeat: -1
+    });
+  });
+}
+
 function createCharacterDisplay(scene, member, fallbackKey, y) {
   const sheet = member ? CHARACTER_WALK_SHEETS[member.id] : null;
   if (sheet && scene.textures.exists(sheet.key)) {
-    return scene.add.sprite(0, y, sheet.key, 0);
+    const sprite = scene.add.sprite(0, y, sheet.key, 0);
+    // Walk frames are 64px vs 128px single images: boost to match display size.
+    sprite.walkSheetScaleBoost = 2;
+    return sprite;
   }
   return scene.add.image(0, y, fallbackKey);
 }
@@ -931,8 +952,8 @@ function addToken(scene, x, y, color, label, spriteKey = 'heroKael', spriteScale
   const targetRing = scene.add.ellipse(0, footY, 72, 24)
     .setStrokeStyle(3, 0x66d17b, 0.92)
     .setVisible(false);
-  const sprite = createCharacterDisplay(scene, options.member, spriteKey, spriteY)
-    .setScale(spriteScale);
+  const sprite = createCharacterDisplay(scene, options.member, spriteKey, spriteY);
+  sprite.setScale(spriteScale * (sprite.walkSheetScaleBoost || 1));
   sprite.setOrigin(0.5, options.footAnchored ? 1 : 0.82);
   if (color !== null && color !== undefined) sprite.setTint(color);
   const targetTag = scene.add.text(0, -112, 'ALLY', {
@@ -969,9 +990,12 @@ function addEnemyToken(scene, x, y, enemy) {
   const targetRing = scene.add.ellipse(0, 38, 82, 28)
     .setStrokeStyle(3, 0xffdf7a, 0.92)
     .setVisible(false);
-  const sprite = scene.add.image(0, -2, enemyType.texture)
+  const sprite = scene.add.sprite(0, -2, enemyType.texture, 0)
     .setScale(enemyType.scale);
   sprite.setOrigin(0.5, 0.82);
+  if (enemy.hp > 0 && scene.anims.exists(`${enemyType.texture}_breathe`)) {
+    sprite.play(`${enemyType.texture}_breathe`);
+  }
   if (enemyType.accent) sprite.setTint(enemyType.accent);
   const targetTag = scene.add.text(0, -128, 'TARGET', {
     fontFamily: 'Arial, sans-serif',

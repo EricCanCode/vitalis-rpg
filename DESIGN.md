@@ -41,6 +41,13 @@ any copyrighted asset, character, or composition. All art is original to Vitalis
 - Consistent foot-anchored baselines (the renderer uses foot-anchored origins;
   no baked-in drop shadows — the engine draws shadow ellipses).
 
+## Resolved scope decisions (2026-07-10)
+
+- **Portraits:** regenerated to match the new art direction, keeping each hero's
+  palette identity (Kael blue, Mira ember, Rowan moss, Nyx violet) as continuity.
+- **Enemy idles:** 2-frame breathing idle animations are in scope, including the
+  loader/animation changes to support them.
+
 ## Explicitly out of scope — do NOT alter
 
 These systems remain as designed, regardless of the directive:
