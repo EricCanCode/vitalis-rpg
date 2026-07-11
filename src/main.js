@@ -33,6 +33,7 @@ import {
   xpToNextLevel
 } from './state.js';
 import { IntroScene } from './intro.js';
+import { playSound } from './audio.js';
 
 const hud = {
   root: document.getElementById('hud'),
@@ -62,6 +63,7 @@ let expeditionAreaId = gameState.currentAreaId || 'forest_road';
 let lastAnimatedFxKey = '';
 let previewTargetId = null;
 let menuOpen = false;
+let lastVictoryChime = null;
 let townCollisionDebugVisible = false;
 const PLAYER_MOVE_SPEED = 170;
 const PLAYER_BODY = {
@@ -462,6 +464,7 @@ function addActionFeedback(scene) {
 function animateAction(scene, fx, targetViews) {
   const actorView = [...scene.partyViews, ...scene.enemyViews].find(view => view.actorId === fx.actorId);
   const isHelpful = fx.type === 'heal' || fx.type === 'shield' || fx.type === 'guard' || fx.type === 'buff';
+  playSound(fx.type);
   if (actorView && fx.type !== 'heal') {
     const direction = actorView.actorSide === 'party' ? 1 : -1;
     scene.tweens.add({
@@ -1274,6 +1277,7 @@ function renderExpeditionPanel(areaId) {
       renderHud('town');
       return;
     }
+    playSound('encounter');
     menuOpen = false;
     currentScene.scene.start('BattleScene');
   }, 'wide area-action');
@@ -1900,6 +1904,10 @@ function renderVictoryOverlay(area, progress) {
   hud.victoryActions.innerHTML = '';
   addVictoryChoices(area, progress);
   hud.victoryOverlay.classList.remove('hidden');
+  if (lastVictoryChime !== gameState.lastReward) {
+    lastVictoryChime = gameState.lastReward;
+    playSound('victory');
+  }
 }
 
 function getVictoryMessage(area, progress) {
@@ -2198,7 +2206,10 @@ function addVictoryButton(label, handler, className = '') {
   button.type = 'button';
   button.textContent = label;
   if (className) button.className = className;
-  button.addEventListener('click', handler);
+  button.addEventListener('click', () => {
+    playSound('click');
+    handler();
+  });
   hud.victoryActions.appendChild(button);
   return button;
 }
@@ -2220,7 +2231,10 @@ function addButton(label, handler, className = '', note = '') {
   `;
   button.setAttribute('aria-label', label);
   if (className) button.className = className;
-  button.addEventListener('click', handler);
+  button.addEventListener('click', () => {
+    playSound('click');
+    handler();
+  });
   hud.actions.appendChild(button);
   return button;
 }
