@@ -47,13 +47,18 @@ export const CHARACTER_LARGE_WALK_FORMAT = {
     up: 3
   },
   idleColumn: 0,
-  walkColumns: [1, 2, 3, 4]
+  walkColumns: [1, 2, 3, 4],
+  // The source art only draws a left profile; right-facing is a mirror of it
+  // (the classic Chrono Trigger technique). Build 'right' from the left row
+  // and flip it horizontally at draw time so the sheet's duplicated/absent
+  // right row is never used.
+  mirrorRightFromLeft: true
 };
 
 export const CHARACTER_WALK_SHEETS = {
   kael: {
     key: 'kaelWalk',
-    path: 'assets/sprites/kael_walk_sheet.png',
+    path: 'assets/sprites/kael_walk_sheet.png?v=kael-down-1',
     format: CHARACTER_LARGE_WALK_FORMAT,
     scaleBoost: 0.65
   },

@@ -29,6 +29,7 @@ import {
   saveGame,
   scoutArea,
   searchAreaCache,
+  selectArea,
   startEncounter,
   useItem,
   usePotion,
@@ -77,6 +78,7 @@ let previewTargetId = null;
 let menuOpen = false;
 let lastVictoryChime = null;
 let townCollisionDebugVisible = false;
+let villageSpawn = null;
 const PLAYER_MOVE_SPEED = 170;
 const PLAYER_BODY = {
   width: 22,
@@ -93,11 +95,36 @@ const TOWN_NPCS = [
   { panel: 'npc:quartermaster', name: 'Quartermaster', x: 0.18, y: 0.48, tint: 0xf3c65f },
   { panel: 'npc:innkeeper', name: 'Innkeeper', x: 0.77, y: 0.48, tint: 0xef6f6c }
 ];
+const TOWN_DOORS = [
+  { id: 'inn', label: 'Enter Inn', x: 0.765, y: 0.54, spawn: 'innDoor' }
+];
+const VILLAGE_SPAWNS = {
+  default: { x: 0.43, y: 0.61, facing: 'down' },
+  innDoor: { x: 0.765, y: 0.56, facing: 'down' }
+};
+const INN_SPAWNS = {
+  entrance: { x: 0.5, y: 0.82, facing: 'up' }
+};
+const INN_NPCS = [
+  { panel: 'npc:innkeeper', name: 'Innkeeper', x: 0.5, y: 0.38, tint: 0xef6f6c }
+];
+const INN_EXIT = { label: 'Exit to Village', x: 0.5, y: 0.91, radius: 74 };
 const TOWN_MAP_MARKERS = [
   ['forest_road', 0.35, 0.31],
   ['old_ruins', 0.62, 0.35],
   ['crystal_cave', 0.78, 0.64],
   ['blackroot_fen', 0.25, 0.78]
+];
+const WORLD_MAP_POINTS = [
+  { areaId: 'forest_road', x: 0.28, y: 0.58, terrain: 'road', color: 0xf3c65f },
+  { areaId: 'old_ruins', x: 0.48, y: 0.38, terrain: 'ruins', color: 0xb9b09c },
+  { areaId: 'crystal_cave', x: 0.66, y: 0.54, terrain: 'cave', color: 0x9bd8ff },
+  { areaId: 'blackroot_fen', x: 0.78, y: 0.74, terrain: 'fen', color: 0x66d17b }
+];
+const WORLD_MAP_ROUTES = [
+  ['forest_road', 'old_ruins'],
+  ['old_ruins', 'crystal_cave'],
+  ['crystal_cave', 'blackroot_fen']
 ];
 const TOWN_COLLISION_CONFIG = {
   playableArea: {
@@ -218,7 +245,7 @@ document.addEventListener('keydown', event => {
   if (!isInteractKey) return;
   if (!hud.titleScreen.classList.contains('hidden')) return;
   if (gameState.scene !== 'town') return;
-  if (!currentScene || currentScene.scene.key !== 'TownScene') return;
+  if (!currentScene || !['TownScene', 'InnScene'].includes(currentScene.scene.key)) return;
   const target = resolveTownInteractable(currentScene);
   if (!target) return;
   event.preventDefault();
@@ -326,6 +353,7 @@ class TownScene extends Phaser.Scene {
       addToken(this, this.scale.width * npc.x, this.scale.height * npc.y, npc.tint, npc.name, 'villagerIdle', 0.72);
     });
     addMapMarkers(this);
+    addTownDoorMarkers(this);
     setupTownInteractables(this);
     this.cursors = this.input.keyboard.createCursorKeys();
     this.wasd = this.input.keyboard.addKeys('W,A,S,D');
@@ -340,7 +368,8 @@ class TownScene extends Phaser.Scene {
     this.input.on('pointerdown', pointer => {
       const target = this.activeInteractable;
       if (!target) return;
-      if (Phaser.Math.Distance.Between(pointer.worldX, pointer.worldY, target.x, target.y) <= TOWN_INTERACT_RADIUS * 1.5) {
+      const radius = target.radius || TOWN_INTERACT_RADIUS;
+      if (Phaser.Math.Distance.Between(pointer.worldX, pointer.worldY, target.x, target.y) <= radius * 1.5) {
         activateTownInteractable(this);
       }
     });
@@ -357,6 +386,59 @@ class TownScene extends Phaser.Scene {
   update(time, delta) {
     updateTownPlayer(this, delta);
     updateTownFollowers(this, delta);
+    updateTownInteractions(this);
+  }
+}
+
+class WorldMapScene extends Phaser.Scene {
+  constructor() {
+    super('WorldMapScene');
+  }
+
+  create() {
+    currentScene = this;
+    expeditionAreaId = expeditionAreaId || gameState.currentAreaId || AREAS[0].id;
+    townPanelMode = townPanelMode.startsWith('expedition:') ? townPanelMode : 'map';
+    this.cameras.main.setBackgroundColor('#17201b');
+    drawWorldMap(this);
+    this.input.keyboard.on('keydown-ESC', () => returnToVillage());
+    this.input.keyboard.on('keydown-V', () => returnToVillage());
+    renderHud('town');
+  }
+
+  refresh() {
+    drawWorldMap(this);
+  }
+}
+
+class InnScene extends Phaser.Scene {
+  constructor() {
+    super('InnScene');
+  }
+
+  create() {
+    currentScene = this;
+    townPanelMode = townPanelMode.startsWith('npc:') ? townPanelMode : 'inn';
+    drawInnInterior(this);
+    configureInteriorCollision(this);
+    addInteriorParty(this, INN_SPAWNS.entrance);
+    INN_NPCS.forEach(npc => {
+      addToken(this, this.scale.width * npc.x, this.scale.height * npc.y, npc.tint, npc.name, 'villagerIdle', 0.72);
+    });
+    setupInnInteractables(this);
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.wasd = this.input.keyboard.addKeys('W,A,S,D');
+    this.input.keyboard.on('keydown-SPACE', event => {
+      if (!resolveTownInteractable(this) && !isNpcDialogueOpen()) return;
+      event?.event?.preventDefault();
+      activateTownInteractable(this);
+    });
+    renderHud('town');
+    this.cameras.main.fadeIn(180, 10, 10, 10);
+  }
+
+  update(time, delta) {
+    updateTownPlayer(this, delta);
     updateTownInteractions(this);
   }
 }
@@ -774,7 +856,9 @@ function createCharacterAnimations(scene) {
     if (!scene.textures.exists(sheet.key)) return;
     const format = sheet.format || CHARACTER_SPRITESHEET_FORMAT;
     format.directions.forEach(direction => {
-      const row = format.rows[direction];
+      // Right-facing frames are the left row mirrored at draw time.
+      const sourceDirection = direction === 'right' && format.mirrorRightFromLeft ? 'left' : direction;
+      const row = format.rows[sourceDirection];
       const idleFrame = row * format.columns + format.idleColumn;
       const walkFrames = format.walkColumns.map(column => row * format.columns + column);
       scene.anims.create({
@@ -929,9 +1013,12 @@ function playCharacterMotion(view, moving) {
   if (!sprite || !sheetKey || !sprite.scene.textures.exists(sheetKey)) return;
   const direction = view.facing || 'down';
   const state = moving ? 'walk' : 'idle';
+  // Mirror the left-facing art to face right.
+  sprite.setFlipX(direction === 'right');
   const animationKey = getCharacterAnimKey(sheetKey, state, direction);
-  if (moving) sprite.play(animationKey, true);
-  else if (sprite.anims.currentAnim?.key !== animationKey) sprite.play(animationKey, true);
+  if (sprite.anims.currentAnim?.key !== animationKey || !sprite.anims.isPlaying) {
+    sprite.play(animationKey);
+  }
 }
 
 function getCharacterAnimKey(sheetKey, state, direction) {
@@ -1019,6 +1106,16 @@ function setupTownInteractables(scene) {
       locked: false
     });
   });
+  TOWN_DOORS.forEach(door => {
+    scene.townInteractables.push({
+      x: scene.scale.width * door.x,
+      y: scene.scale.height * door.y,
+      label: door.label,
+      radius: TOWN_INTERACT_RADIUS,
+      locked: false,
+      action: () => enterInn(door.spawn)
+    });
+  });
   TOWN_MAP_MARKERS.forEach(([areaId, xPct, yPct]) => {
     const area = AREAS.find(entry => entry.id === areaId);
     scene.townInteractables.push({
@@ -1030,6 +1127,37 @@ function setupTownInteractables(scene) {
       radius: TOWN_INTERACT_RADIUS,
       locked: !isAreaUnlocked(areaId)
     });
+  });
+  scene.activeInteractable = null;
+  scene.interactPrompt = scene.add.text(0, 0, '', {
+    fontFamily: 'Arial, sans-serif',
+    fontSize: '13px',
+    fontStyle: 'bold',
+    color: '#17120a',
+    backgroundColor: '#ffdf7a',
+    padding: { left: 8, right: 8, top: 4, bottom: 4 }
+  }).setOrigin(0.5).setDepth(9000).setVisible(false);
+}
+
+function setupInnInteractables(scene) {
+  scene.townInteractables = [];
+  INN_NPCS.forEach(npc => {
+    scene.townInteractables.push({
+      x: scene.scale.width * npc.x,
+      y: scene.scale.height * npc.y,
+      label: `Talk to ${npc.name}`,
+      panel: npc.panel,
+      radius: TOWN_NPC_INTERACT_RADIUS,
+      locked: false
+    });
+  });
+  scene.townInteractables.push({
+    x: scene.scale.width * INN_EXIT.x,
+    y: scene.scale.height * INN_EXIT.y,
+    label: INN_EXIT.label,
+    radius: INN_EXIT.radius,
+    locked: false,
+    action: () => exitInn()
   });
   scene.activeInteractable = null;
   scene.interactPrompt = scene.add.text(0, 0, '', {
@@ -1092,6 +1220,10 @@ function activateTownInteractable(scene) {
     }
   }
   if (!target || gameState.scene !== 'town') return;
+  if (target.action) {
+    target.action();
+    return;
+  }
   if (target.areaId) expeditionAreaId = target.areaId;
   townPanelMode = target.panel;
   renderHud('town');
@@ -1106,8 +1238,63 @@ function isCurrentNpcTarget(target) {
 }
 
 function closeTownDialogue() {
-  townPanelMode = 'map';
+  townPanelMode = currentScene?.scene?.key === 'InnScene' ? 'inn' : 'map';
   renderHud('town');
+}
+
+function openWorldMap(areaId = expeditionAreaId || gameState.currentAreaId) {
+  if (gameState.scene !== 'town') return;
+  expeditionAreaId = areaId;
+  townPanelMode = 'map';
+  closeTownDialogue();
+  menuOpen = false;
+  currentScene?.scene.start('WorldMapScene');
+}
+
+function returnToVillage() {
+  if (gameState.scene !== 'town') return;
+  townPanelMode = 'map';
+  menuOpen = false;
+  currentScene?.scene.start('TownScene');
+}
+
+function enterInn(spawn = 'innDoor') {
+  if (!currentScene) return;
+  closeTownDialogue();
+  villageSpawn = spawn;
+  menuOpen = false;
+  currentScene.cameras.main.fadeOut(180, 10, 10, 10);
+  currentScene.time.delayedCall(180, () => currentScene.scene.start('InnScene'));
+}
+
+function exitInn() {
+  if (!currentScene) return;
+  closeTownDialogue();
+  menuOpen = false;
+  currentScene.cameras.main.fadeOut(180, 10, 10, 10);
+  currentScene.time.delayedCall(180, () => currentScene.scene.start('TownScene'));
+}
+
+function isWorldMapOpen() {
+  return currentScene?.scene?.key === 'WorldMapScene';
+}
+
+function getSelectedWorldMapAreaId() {
+  return expeditionAreaId || gameState.currentAreaId || AREAS[0].id;
+}
+
+function selectWorldMapArea(scene, areaId) {
+  expeditionAreaId = areaId;
+  if (!isAreaUnlocked(areaId)) {
+    townPanelMode = 'map';
+    renderHud('town');
+    scene.refresh?.();
+    return;
+  }
+  selectArea(areaId);
+  townPanelMode = `expedition:${areaId}`;
+  renderHud('town');
+  scene.refresh?.();
 }
 
 function toggleTownCollisionDebug(scene) {
@@ -1119,34 +1306,99 @@ function setTownCollisionDebugVisible(scene, visible) {
   scene.townCollisionDebugViews?.forEach(view => view.setVisible(visible));
 }
 
+function configureInteriorCollision(scene) {
+  const width = scene.scale.width;
+  const height = scene.scale.height;
+  scene.townBounds = {
+    left: width * 0.22,
+    top: height * 0.28,
+    right: width * 0.78,
+    bottom: height * 0.91
+  };
+  scene.townObstacleBounds = [
+    { label: 'innCounter', left: width * 0.37, right: width * 0.63, top: height * 0.27, bottom: height * 0.42 },
+    { label: 'leftBeds', left: width * 0.25, right: width * 0.37, top: height * 0.46, bottom: height * 0.7 },
+    { label: 'rightBeds', left: width * 0.63, right: width * 0.75, top: height * 0.46, bottom: height * 0.7 },
+    { label: 'hearth', left: width * 0.22, right: width * 0.34, top: height * 0.26, bottom: height * 0.38 },
+    { label: 'shelves', left: width * 0.67, right: width * 0.78, top: height * 0.25, bottom: height * 0.38 }
+  ];
+}
+
+function drawInnInterior(scene) {
+  const width = scene.scale.width;
+  const height = scene.scale.height;
+  scene.cameras.main.setBackgroundColor('#0e1210');
+  scene.add.rectangle(0, 0, width, height, 0x0e1210, 1).setOrigin(0);
+  scene.add.rectangle(width * 0.5, height * 0.57, width * 0.62, height * 0.72, 0x5c3b22, 1)
+    .setStrokeStyle(5, 0x1e120a, 0.9);
+  scene.add.rectangle(width * 0.5, height * 0.31, width * 0.62, height * 0.2, 0x3f2819, 1);
+  scene.add.rectangle(width * 0.5, height * 0.62, width * 0.52, height * 0.45, 0x7a5530, 0.86)
+    .setStrokeStyle(2, 0x2b1a0f, 0.65);
+  scene.add.rectangle(width * 0.5, height * 0.36, width * 0.27, height * 0.1, 0x8d5b2f, 1)
+    .setStrokeStyle(3, 0x2b1a0f, 0.78);
+  scene.add.rectangle(width * 0.5, height * 0.42, width * 0.32, height * 0.045, 0x2f1c0e, 0.9);
+  scene.add.rectangle(width * 0.5, height * 0.9, width * 0.14, height * 0.08, 0x21140d, 0.95)
+    .setStrokeStyle(2, 0xf3c65f, 0.35);
+  addInnBed(scene, width * 0.31, height * 0.57);
+  addInnBed(scene, width * 0.69, height * 0.57);
+  scene.add.rectangle(width * 0.28, height * 0.32, width * 0.1, height * 0.09, 0x24140d, 1)
+    .setStrokeStyle(2, 0xcc6b2c, 0.8);
+  scene.add.circle(width * 0.28, height * 0.34, 22, 0xff8a2b, 0.35);
+  scene.add.rectangle(width * 0.72, height * 0.31, width * 0.09, height * 0.12, 0x6b4527, 1)
+    .setStrokeStyle(2, 0x2b1a0f, 0.8);
+  scene.add.text(width * 0.5, height * 0.18, 'Village Inn', {
+    fontFamily: 'Georgia, serif',
+    fontSize: '28px',
+    color: '#fff3cc',
+    stroke: '#1a1208',
+    strokeThickness: 5
+  }).setOrigin(0.5);
+}
+
+function addInnBed(scene, x, y) {
+  scene.add.rectangle(x, y, 118, 72, 0x2b1a0f, 1).setStrokeStyle(2, 0x9b6a3e, 0.9);
+  scene.add.rectangle(x, y - 18, 104, 26, 0xd8cfb7, 1);
+  scene.add.rectangle(x, y + 16, 104, 34, 0x6d2e2e, 1);
+}
+
 function addAtmosphere(scene) {
   scene.add.rectangle(0, 0, scene.scale.width, scene.scale.height, 0x0f1614, 0.18).setOrigin(0);
   scene.add.circle(scene.scale.width * 0.58, scene.scale.height * 0.18, 180, 0xfff0c0, 0.08);
 }
 
 function addTownParty(scene) {
-  const positions = [
-    [0.43, 0.61],
-    [0.52, 0.61],
-    [0.47, 0.70],
-    [0.57, 0.70]
-  ];
+  const spawn = VILLAGE_SPAWNS[villageSpawn] || VILLAGE_SPAWNS.default;
   scene.townFollowerViews = [];
   scene.townLeaderTrail = [];
   gameState.party.forEach((member, index) => {
     // Town shows only the lead hero; the full party appears in battle.
     if (index > 0) return;
-    const [xPct, yPct] = positions[index];
-    const view = addToken(scene, scene.scale.width * xPct, scene.scale.height * yPct, null, member.name, member.spriteKey || 'heroKael', 0.7, {
+    const view = addToken(scene, scene.scale.width * spawn.x, scene.scale.height * spawn.y, null, member.name, member.spriteKey || 'heroKael', 0.7, {
       member,
       footAnchored: true
     });
     view.baseX = view.x;
     view.baseY = view.y;
-    view.facing = 'down';
+    view.facing = spawn.facing || 'down';
     view.isPlayableTownHero = true;
     scene.townPlayerView = view;
   });
+  villageSpawn = null;
+}
+
+function addInteriorParty(scene, spawn) {
+  scene.townFollowerViews = [];
+  scene.townLeaderTrail = [];
+  const member = gameState.party[0];
+  const view = addToken(scene, scene.scale.width * spawn.x, scene.scale.height * spawn.y, null, member.name, member.spriteKey || 'heroKael', 0.7, {
+    member,
+    footAnchored: true
+  });
+  view.baseX = view.x;
+  view.baseY = view.y;
+  view.facing = spawn.facing || 'up';
+  view.isPlayableTownHero = true;
+  scene.townPlayerView = view;
 }
 
 function updateTownFollowers(scene, delta) {
@@ -1203,6 +1455,170 @@ function addMapMarkers(scene) {
       strokeThickness: 4
     }).setOrigin(0.5);
   });
+}
+
+function addTownDoorMarkers(scene) {
+  TOWN_DOORS.forEach(door => {
+    const x = scene.scale.width * door.x;
+    const y = scene.scale.height * door.y;
+    scene.add.ellipse(x, y + 10, 48, 18, 0x111715, 0.32);
+    scene.add.rectangle(x, y - 8, 34, 34, 0x2d1b0e, 0.82)
+      .setStrokeStyle(2, 0xf3c65f, 0.6);
+    scene.add.text(x, y + 34, 'Inn', {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '12px',
+      fontStyle: 'bold',
+      color: '#fff3cc',
+      stroke: '#111',
+      strokeThickness: 4
+    }).setOrigin(0.5);
+  });
+}
+
+function drawWorldMap(scene) {
+  scene.mapLayer?.destroy(true);
+  const layer = scene.add.container(0, 0);
+  scene.mapLayer = layer;
+  const width = scene.scale.width;
+  const height = scene.scale.height;
+
+  layer.add(scene.add.rectangle(0, 0, width, height, 0x1c241d, 1).setOrigin(0));
+  layer.add(scene.add.rectangle(width * 0.5, height * 0.5, width * 0.88, height * 0.74, 0xd6b26c, 0.9)
+    .setStrokeStyle(5, 0x5b3f20, 0.82));
+  layer.add(scene.add.ellipse(width * 0.37, height * 0.42, width * 0.5, height * 0.32, 0x88a76a, 0.22));
+  layer.add(scene.add.ellipse(width * 0.74, height * 0.72, width * 0.28, height * 0.18, 0x2d5b50, 0.3));
+  layer.add(scene.add.ellipse(width * 0.66, height * 0.52, width * 0.24, height * 0.17, 0x547c9c, 0.18));
+  layer.add(scene.add.rectangle(width * 0.5, height * 0.5, width * 0.88, height * 0.74, 0x1a1208, 0)
+    .setStrokeStyle(1, 0xffe0a0, 0.22));
+
+  addWorldMapTitle(scene, layer);
+  addWorldMapRoutes(scene, layer);
+  addWorldMapMarkers(scene, layer);
+}
+
+function addWorldMapTitle(scene, layer) {
+  const title = scene.add.text(scene.scale.width * 0.15, scene.scale.height * 0.16, 'World Map', {
+    fontFamily: 'Georgia, serif',
+    fontSize: '30px',
+    color: '#fff3cc',
+    stroke: '#2d1b0e',
+    strokeThickness: 5
+  }).setOrigin(0, 0.5);
+  const subtitle = scene.add.text(scene.scale.width * 0.15, scene.scale.height * 0.205, 'Choose a route, then prepare the party.', {
+    fontFamily: 'Arial, sans-serif',
+    fontSize: '13px',
+    color: '#392718'
+  }).setOrigin(0, 0.5).setAlpha(0.82);
+  layer.add([title, subtitle]);
+}
+
+function addWorldMapRoutes(scene, layer) {
+  WORLD_MAP_ROUTES.forEach(([fromId, toId]) => {
+    const from = getWorldMapPoint(scene, fromId);
+    const to = getWorldMapPoint(scene, toId);
+    if (!from || !to) return;
+    const fromUnlocked = isAreaUnlocked(fromId);
+    const toUnlocked = isAreaUnlocked(toId);
+    const color = fromUnlocked && toUnlocked ? 0x5f4123 : 0x6d766a;
+    const alpha = fromUnlocked && toUnlocked ? 0.74 : 0.42;
+    const route = scene.add.line(0, 0, from.x, from.y, to.x, to.y, color, alpha)
+      .setOrigin(0)
+      .setLineWidth(7);
+    const highlight = scene.add.line(0, 0, from.x, from.y, to.x, to.y, 0xffefbd, fromUnlocked && toUnlocked ? 0.3 : 0.12)
+      .setOrigin(0)
+      .setLineWidth(2);
+    layer.add([route, highlight]);
+  });
+}
+
+function addWorldMapMarkers(scene, layer) {
+  WORLD_MAP_POINTS.forEach(point => {
+    const area = AREAS.find(entry => entry.id === point.areaId);
+    if (!area) return;
+    const progress = getQuestProgress(area.questId);
+    const readiness = getAreaReadiness(area.id);
+    const unlocked = isAreaUnlocked(area.id);
+    const selected = area.id === getSelectedWorldMapAreaId();
+    const x = scene.scale.width * point.x;
+    const y = scene.scale.height * point.y;
+    const markerColor = unlocked ? point.color : 0x7a7565;
+    const outer = scene.add.circle(x, y, selected ? 25 : 21, markerColor, unlocked ? 0.95 : 0.56)
+      .setStrokeStyle(selected ? 5 : 3, selected ? 0xfff3cc : 0x2d1b0e, selected ? 0.95 : 0.72)
+      .setInteractive({ useHandCursor: unlocked });
+    const inner = scene.add.circle(x, y, 8, unlocked ? 0xfff3cc : 0x242b26, unlocked ? 0.95 : 0.68);
+    const label = scene.add.text(x, y + 34, `${area.name}\n${progress.wins}/${progress.requiredWins}`, {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '13px',
+      fontStyle: 'bold',
+      align: 'center',
+      color: unlocked ? '#fff3cc' : '#c2bba5',
+      stroke: '#1a1208',
+      strokeThickness: 4
+    }).setOrigin(0.5, 0);
+    outer.on('pointerdown', () => selectWorldMapArea(scene, area.id));
+    outer.on('pointerover', () => {
+      outer.setScale(1.08);
+      if (unlocked) setWorldMapHint(scene, `${area.name}: ${readiness.label}`);
+    });
+    outer.on('pointerout', () => {
+      outer.setScale(1);
+      setWorldMapHint(scene, '');
+    });
+    layer.add([outer, inner, label]);
+    if (!unlocked) {
+      const lock = scene.add.text(x, y - 1, 'Locked', {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '10px',
+        fontStyle: 'bold',
+        color: '#111715',
+        backgroundColor: '#c2bba5',
+        padding: { left: 5, right: 5, top: 2, bottom: 2 }
+      }).setOrigin(0.5);
+      layer.add(lock);
+    }
+    if (selected && unlocked) addWorldMapPartyToken(scene, layer, x, y);
+  });
+}
+
+function addWorldMapPartyToken(scene, layer, x, y) {
+  const pulse = scene.add.circle(x, y - 30, 12, 0x66d17b, 0.26)
+    .setStrokeStyle(2, 0xfff3cc, 0.68);
+  const token = scene.add.circle(x, y - 30, 6, 0xfff3cc, 0.96)
+    .setStrokeStyle(2, 0x1a1208, 0.75);
+  scene.tweens.add({
+    targets: pulse,
+    scale: 1.45,
+    alpha: 0.06,
+    duration: 1100,
+    yoyo: true,
+    repeat: -1,
+    ease: 'Sine.easeInOut'
+  });
+  layer.add([pulse, token]);
+}
+
+function setWorldMapHint(scene, text) {
+  if (!scene.worldMapHint) {
+    scene.worldMapHint = scene.add.text(scene.scale.width * 0.5, scene.scale.height * 0.86, '', {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '14px',
+      fontStyle: 'bold',
+      color: '#fff3cc',
+      stroke: '#1a1208',
+      strokeThickness: 4
+    }).setOrigin(0.5);
+  }
+  scene.worldMapHint.setText(text);
+}
+
+function getWorldMapPoint(scene, areaId) {
+  const point = WORLD_MAP_POINTS.find(entry => entry.areaId === areaId);
+  if (!point) return null;
+  return {
+    ...point,
+    x: scene.scale.width * point.x,
+    y: scene.scale.height * point.y
+  };
 }
 
 function addToken(scene, x, y, color, label, spriteKey = 'heroKael', spriteScale = 0.65, options = {}) {
@@ -1326,7 +1742,7 @@ function showAchievementToasts() {
 
 function renderHud(mode) {
   showAchievementToasts();
-  hud.title.textContent = mode === 'battle' ? gameState.battle.encounter.name : 'Village';
+  hud.title.textContent = mode === 'battle' ? gameState.battle.encounter.name : getExplorationTitle();
   hud.mission.textContent = getMissionText(mode);
   hud.gold.textContent = `${gameState.gold}`;
   hud.potions.textContent = `Items ${totalConsumables()}`;
@@ -1356,9 +1772,21 @@ function getMissionText(mode) {
     const remaining = Math.max(0, progress.requiredWins - progress.wins);
     return `${area.name} - ${remaining} ${remaining === 1 ? 'clear' : 'clears'} left`;
   }
+  if (isWorldMapOpen()) {
+    const area = AREAS.find(entry => entry.id === getSelectedWorldMapAreaId()) || AREAS[0];
+    const progress = getQuestProgress(area.questId);
+    return `${area.name} - ${progress.wins}/${progress.requiredWins} cleared`;
+  }
+  if (currentScene?.scene?.key === 'InnScene') return 'Village Inn - rest and talk';
   const area = AREAS.find(entry => entry.id === gameState.currentAreaId) || AREAS[0];
   const progress = getQuestProgress(area.questId);
   return `${area.name} - ${progress.wins}/${progress.requiredWins} cleared`;
+}
+
+function getExplorationTitle() {
+  if (isWorldMapOpen()) return 'World Map';
+  if (currentScene?.scene?.key === 'InnScene') return 'Inn';
+  return 'Village';
 }
 
 function renderParty() {
@@ -1434,6 +1862,10 @@ function renderTownPanel() {
     renderSettingsPanel();
     return;
   }
+  if (townPanelMode === 'inn') {
+    renderInnPanel();
+    return;
+  }
   if (townPanelMode.startsWith('npc:')) {
     renderNpcPanel(townPanelMode.split(':')[1]);
     return;
@@ -1445,13 +1877,36 @@ function renderTownPanel() {
   renderMapPanel();
 }
 
+function renderInnPanel() {
+  hud.copy.innerHTML = `
+    <div class="npc-panel">
+      <strong>Village Inn</strong>
+      <p>Warm lamps, clean beds, and a counter worn smooth by travelers. Walk to the innkeeper to talk, or rest from here.</p>
+    </div>
+    <div class="expedition-note">
+      <strong>Inside</strong>
+      <span>Press Space near the doorway to return to the village.</span>
+    </div>
+  `;
+  hud.actions.innerHTML = '';
+  addRestButton('wide area-action');
+  addButton('Supplies', () => {
+    townPanelMode = 'supplies';
+    renderHud('town');
+  });
+  addButton('Leave Inn', () => {
+    exitInn();
+  }, 'wide secondary-action');
+}
+
 function renderMapPanel() {
   const unlockedAreas = getUnlockedAreas();
-  const activeArea = AREAS.find(area => area.id === gameState.currentAreaId) || unlockedAreas[0] || AREAS[0];
+  const activeAreaId = isWorldMapOpen() ? getSelectedWorldMapAreaId() : gameState.currentAreaId;
+  const activeArea = AREAS.find(area => area.id === activeAreaId) || unlockedAreas[0] || AREAS[0];
   const activeReadiness = getAreaReadiness(activeArea.id);
   hud.copy.innerHTML = `
-    <strong>Choose the party's next path.</strong><br>
-    Complete each area objective to open the next destination.
+    <strong>${isWorldMapOpen() ? 'Choose a route on the map.' : "Choose the party's next path."}</strong><br>
+    ${isWorldMapOpen() ? 'Click a marker to inspect the path, scout it, or begin the next encounter.' : 'Complete each area objective to open the next destination.'}
     ${renderChapterProgress()}
     <div class="area-summary">
       <span>Selected</span>
@@ -1467,10 +1922,19 @@ function renderMapPanel() {
     </div>
   `;
   hud.actions.innerHTML = '';
+  if (isWorldMapOpen()) {
+    addButton('Return to Village', () => {
+      returnToVillage();
+    }, 'wide secondary-action');
+  } else {
+    addButton('Open World Map', () => {
+      openWorldMap(activeArea.id);
+    }, 'wide area-action');
+  }
   addButton('Party Management', () => {
     townPanelMode = 'party';
     renderHud('town');
-  }, 'wide secondary-action');
+  }, isWorldMapOpen() ? 'secondary-action' : 'wide secondary-action');
   addButton('Journal', () => {
     townPanelMode = 'journal';
     renderHud('town');
@@ -1498,6 +1962,7 @@ function renderMapPanel() {
     const button = addButton(`${area.name} ${progress.wins}/${progress.requiredWins} - ${readiness.label}`, () => {
       expeditionAreaId = area.id;
       townPanelMode = `expedition:${area.id}`;
+      if (isWorldMapOpen() && currentScene?.refresh) currentScene.refresh();
       renderHud('town');
     }, 'area-action');
     button.disabled = !unlocked;
@@ -1518,6 +1983,12 @@ function renderMapPanel() {
   }, 'wide');
 }
 
+function addWorldMapButton(className = 'wide secondary-action') {
+  return addButton('World Map', () => {
+    openWorldMap(getSelectedWorldMapAreaId());
+  }, className);
+}
+
 function renderSettingsPanel() {
   const difficulty = getDifficulty();
   hud.copy.innerHTML = `
@@ -1531,10 +2002,7 @@ function renderSettingsPanel() {
     <small>Difficulty applies to encounters started after the change.</small>
   `;
   hud.actions.innerHTML = '';
-  addButton('World Map', () => {
-    townPanelMode = 'map';
-    renderHud('town');
-  }, 'wide secondary-action');
+  addWorldMapButton();
   addButton(`Sound: ${settings.sound ? 'On' : 'Off'}`, () => {
     updateSetting('sound', !settings.sound);
     renderTitleSettings();
@@ -1582,10 +2050,7 @@ function renderExpeditionPanel(areaId) {
     </div>
   `;
   hud.actions.innerHTML = '';
-  addButton('World Map', () => {
-    townPanelMode = 'map';
-    renderHud('town');
-  }, 'wide secondary-action');
+  addWorldMapButton();
   addButton('Scout Path', () => {
     scoutArea(area.id);
     renderHud('town');
@@ -1757,10 +2222,7 @@ function renderJournalPanel() {
     </div>
   `;
   hud.actions.innerHTML = '';
-  addButton('World Map', () => {
-    townPanelMode = 'map';
-    renderHud('town');
-  }, 'wide secondary-action');
+  addWorldMapButton();
   addButton('Party Management', () => {
     townPanelMode = 'party';
     renderHud('town');
@@ -1782,10 +2244,7 @@ function renderBestiaryPanel() {
     </div>
   `;
   hud.actions.innerHTML = '';
-  addButton('World Map', () => {
-    townPanelMode = 'map';
-    renderHud('town');
-  }, 'wide secondary-action');
+  addWorldMapButton();
   addButton('Journal', () => {
     townPanelMode = 'journal';
     renderHud('town');
@@ -1828,10 +2287,13 @@ function renderNpcPanel(npcId) {
     </div>
   `;
   hud.actions.innerHTML = '';
-  addButton('World Map', () => {
-    townPanelMode = 'map';
-    renderHud('town');
-  }, 'wide secondary-action');
+  if (currentScene?.scene?.key === 'InnScene') {
+    addButton('Leave Inn', () => {
+      exitInn();
+    }, 'wide secondary-action');
+  } else {
+    addWorldMapButton();
+  }
   addButton('Quartermaster', () => {
     townPanelMode = 'npc:quartermaster';
     renderHud('town');
@@ -1854,10 +2316,7 @@ function renderSuppliesPanel() {
     </div>
   `;
   hud.actions.innerHTML = '';
-  addButton('World Map', () => {
-    townPanelMode = 'map';
-    renderHud('town');
-  }, 'wide secondary-action');
+  addWorldMapButton();
   Object.values(ITEMS).filter(item => item.kind !== 'key').forEach(item => {
     addBuyItemButton(item.id, `Buy ${item.name} ${item.cost}g`, item.description);
   });
@@ -1916,10 +2375,7 @@ function renderPartyPanel() {
     </div>
   `;
   hud.actions.innerHTML = '';
-  addButton('World Map', () => {
-    townPanelMode = 'map';
-    renderHud('town');
-  }, 'wide secondary-action');
+  addWorldMapButton();
   gameState.party.forEach(partyMember => {
     addButton(partyMember.name, () => {
       selectedMemberId = partyMember.id;
@@ -2305,7 +2761,7 @@ function addVictoryChoices(area, progress) {
     returnToTown();
     townPanelMode = 'map';
     menuOpen = false;
-    currentScene.scene.start('TownScene');
+    currentScene.scene.start(progress?.complete ? 'WorldMapScene' : 'TownScene');
   }, 'secondary');
 }
 
@@ -2625,7 +3081,7 @@ const config = {
     width: 1280,
     height: 720
   },
-  scene: [BootScene, IntroScene, TownScene, BattleScene]
+  scene: [BootScene, IntroScene, TownScene, WorldMapScene, InnScene, BattleScene]
 };
 
 const game = new Phaser.Game(config);
