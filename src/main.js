@@ -4,9 +4,11 @@ import {
   buyPotion,
   camp,
   castSpell,
+  drainAchievementToasts,
   equipWeapon,
   firstLivingEnemy,
   getAbilityUnlocks,
+  getAchievements,
   getBestiaryEntries,
   getNpcDialogue,
   getStoryEvents,
@@ -1084,7 +1086,27 @@ function getAreaTheme(areaId) {
   return AREA_THEMES[areaId] || AREA_THEMES.forest_road;
 }
 
+function showAchievementToasts() {
+  drainAchievementToasts().forEach((achievement, index) => {
+    const toast = document.createElement('div');
+    toast.className = 'achievement-toast';
+    toast.innerHTML = `
+      <strong>Achievement earned</strong>
+      <span>${achievement.title}</span>
+      <em>${achievement.description}</em>
+    `;
+    document.body.appendChild(toast);
+    playSound('achievement');
+    setTimeout(() => toast.classList.add('visible'), 40 + index * 160);
+    setTimeout(() => {
+      toast.classList.remove('visible');
+      setTimeout(() => toast.remove(), 450);
+    }, 3600 + index * 500);
+  });
+}
+
 function renderHud(mode) {
+  showAchievementToasts();
   hud.title.textContent = mode === 'battle' ? gameState.battle.encounter.name : 'Village';
   hud.mission.textContent = getMissionText(mode);
   hud.gold.textContent = `${gameState.gold}`;
@@ -1490,6 +1512,8 @@ function renderKnownEnemyAdvice(preview) {
 
 function renderJournalPanel() {
   const events = getStoryEvents();
+  const achievements = getAchievements();
+  const unlocked = achievements.filter(entry => entry.unlocked).length;
   hud.copy.innerHTML = `
     <div class="journal-panel">
       <strong>Journal</strong>
@@ -1500,6 +1524,15 @@ function renderJournalPanel() {
           <p>${event.body}</p>
         </article>
       `).join('')}
+      <strong class="achievement-heading">Achievements ${unlocked}/${achievements.length}</strong>
+      <div class="achievement-list">
+        ${achievements.map(entry => `
+          <span class="${entry.unlocked ? 'unlocked' : 'locked'}">
+            <strong>${entry.unlocked ? entry.title : '???'}</strong>
+            <em>${entry.description}</em>
+          </span>
+        `).join('')}
+      </div>
     </div>
   `;
   hud.actions.innerHTML = '';

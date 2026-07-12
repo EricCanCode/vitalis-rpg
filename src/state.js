@@ -1,4 +1,4 @@
-import { ABILITY_UNLOCKS, AREAS, BESTIARY, ITEMS, LOOT_TABLES, NPC_DIALOGUE, PARTY_TEMPLATE, QUESTS, SPELLS, STORY_EVENTS, WEAPONS } from './data.js';
+import { ABILITY_UNLOCKS, ACHIEVEMENTS, AREAS, BESTIARY, ITEMS, LOOT_TABLES, NPC_DIALOGUE, PARTY_TEMPLATE, QUESTS, SPELLS, STORY_EVENTS, WEAPONS } from './data.js';
 import { getDifficulty } from './settings.js';
 
 const SAVE_KEY = 'vitalis-rpg-v2-save';
@@ -18,6 +18,7 @@ export function createGameState() {
     storyEvents: ['prologue'],
     titleSeen: false,
     endingSeen: false,
+    achievements: [],
     log: ['The party gathers in the village. The road beyond is restless.']
   };
 }
@@ -36,8 +37,54 @@ export function resetGame() {
 }
 
 export function saveGame() {
+  checkAchievements();
   gameState.lastSavedAt = Date.now();
   localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
+}
+
+const ACHIEVEMENT_CHECKS = {
+  first_light: () => totalWins() >= 1,
+  road_warden: () => getQuestProgress('secure-road').complete,
+  stone_reader: () => getQuestProgress('read-ruins').complete,
+  shard_bearer: () => getQuestProgress('claim-crystal').complete,
+  fen_stiller: () => getQuestProgress('still-the-fen').complete,
+  chronicler: () => Object.keys(BESTIARY).every(type => gameState.bestiary[type]?.discovered),
+  veteran_hand: () => totalDefeated() >= 25,
+  well_provisioned: () => gameState.gold >= 400
+};
+
+let pendingAchievementToasts = [];
+
+function totalWins() {
+  return Object.values(gameState.areaProgress).reduce((sum, progress) => sum + (progress.wins || 0), 0);
+}
+
+function totalDefeated() {
+  return Object.values(gameState.bestiary).reduce((sum, entry) => sum + (entry.defeated || 0), 0);
+}
+
+export function checkAchievements() {
+  if (!Array.isArray(gameState.achievements)) gameState.achievements = [];
+  ACHIEVEMENTS.forEach(achievement => {
+    if (gameState.achievements.includes(achievement.id)) return;
+    if (!ACHIEVEMENT_CHECKS[achievement.id]?.()) return;
+    gameState.achievements.push(achievement.id);
+    pendingAchievementToasts.push(achievement);
+    pushLog(`Achievement earned: ${achievement.title}.`);
+  });
+}
+
+export function drainAchievementToasts() {
+  const toasts = pendingAchievementToasts;
+  pendingAchievementToasts = [];
+  return toasts;
+}
+
+export function getAchievements() {
+  return ACHIEVEMENTS.map(achievement => ({
+    ...achievement,
+    unlocked: gameState.achievements.includes(achievement.id)
+  }));
 }
 
 export function loadGame() {

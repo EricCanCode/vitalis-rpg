@@ -516,6 +516,17 @@ export const AREAS = [
   }
 ];
 
+export const ACHIEVEMENTS = [
+  { id: 'first_light', title: 'First Light', description: 'Win your first battle.' },
+  { id: 'road_warden', title: 'Road Warden', description: 'Secure the Forest Road.' },
+  { id: 'stone_reader', title: 'Stone Reader', description: 'Read the Old Ruins.' },
+  { id: 'shard_bearer', title: 'Shard Bearer', description: 'Claim the first Vitalis shard.' },
+  { id: 'fen_stiller', title: 'Fen Stiller', description: 'Still the Blackroot Fen.' },
+  { id: 'chronicler', title: 'Chronicler', description: 'Discover every creature in the bestiary.' },
+  { id: 'veteran_hand', title: 'Veteran Hand', description: 'Defeat 25 enemies.' },
+  { id: 'well_provisioned', title: 'Well Provisioned', description: 'Hold 400 gold at once.' }
+];
+
 export const QUESTS = [
   {
     id: 'secure-road',

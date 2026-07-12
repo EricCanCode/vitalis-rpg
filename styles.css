@@ -1680,3 +1680,80 @@ h1 {
 [hidden] {
   display: none !important;
 }
+
+/* Achievements (Step 17) */
+.achievement-toast {
+  position: fixed;
+  top: 74px;
+  left: 50%;
+  z-index: 60;
+  display: grid;
+  gap: 2px;
+  min-width: 240px;
+  padding: 10px 16px;
+  border: 1px solid rgba(243, 198, 95, 0.5);
+  border-radius: 10px;
+  background: rgba(13, 18, 17, 0.94);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  transform: translate(-50%, -16px);
+  opacity: 0;
+  transition: transform 0.35s ease, opacity 0.35s ease;
+  pointer-events: none;
+  text-align: center;
+}
+
+.achievement-toast.visible {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+
+.achievement-toast strong {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #f3c65f;
+}
+
+.achievement-toast span {
+  font-weight: 900;
+}
+
+.achievement-toast em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--muted, #cfc7b3);
+}
+
+.achievement-heading {
+  display: block;
+  margin-top: 14px;
+}
+
+.achievement-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.achievement-list span {
+  display: grid;
+  gap: 2px;
+  padding: 7px 10px;
+  border: 1px solid rgba(216, 207, 183, 0.16);
+  border-radius: 8px;
+  background: rgba(13, 18, 17, 0.55);
+}
+
+.achievement-list span.unlocked {
+  border-color: rgba(243, 198, 95, 0.45);
+}
+
+.achievement-list span.locked {
+  opacity: 0.55;
+}
+
+.achievement-list em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--muted, #cfc7b3);
+}
