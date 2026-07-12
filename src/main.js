@@ -1,4 +1,4 @@
-import { AREAS, AREA_THEMES, ASSETS, CHARACTER_SPRITESHEET_FORMAT, CHARACTER_WALK_SHEETS, ENDING_SCENES, ENEMY_IDLE_FORMAT, ENEMY_TYPES, ITEMS, QUESTS, SPELLS, WEAPONS } from './data.js';
+import { AREAS, AREA_THEMES, ASSETS, CHARACTER_BATTLE_SHEETS, CHARACTER_SPRITESHEET_FORMAT, CHARACTER_WALK_SHEETS, ENDING_SCENES, ENEMY_IDLE_FORMAT, ENEMY_TYPES, ITEMS, QUESTS, SPELLS, WEAPONS } from './data.js';
 import {
   buyItem,
   buyPotion,
@@ -61,6 +61,13 @@ const hud = {
   victoryActions: document.getElementById('victory-actions')
 };
 
+const townDialogue = {
+  root: null,
+  avatar: null,
+  name: null,
+  line: null
+};
+
 let currentScene = null;
 let townPanelMode = 'map';
 let selectedMemberId = gameState.party[0]?.id || 'kael';
@@ -78,6 +85,7 @@ const PLAYER_BODY = {
 const PLAYER_COLLISION_STEP = 4;
 const COLLISION_EDGE_GAP = 0.5;
 const TOWN_INTERACT_RADIUS = 90;
+const TOWN_NPC_INTERACT_RADIUS = 180;
 const FOLLOW_TRAIL_STEP = 2;
 const FOLLOW_SPACING = 26;
 const FOLLOW_SNAP_DISTANCE = 2;
@@ -188,6 +196,7 @@ function nextDifficultyId() {
 }
 
 renderTitleSettings();
+createTownDialogueOverlay();
 
 document.addEventListener('keydown', event => {
   if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -205,15 +214,64 @@ document.addEventListener('keydown', event => {
 // plugin entirely.
 document.addEventListener('keydown', event => {
   if (event.metaKey || event.ctrlKey || event.altKey) return;
-  const isInteractKey = event.key === ' ' || event.key === 'Spacebar' || event.key.toLowerCase() === 'e';
+  const isInteractKey = isTownInteractKey(event);
   if (!isInteractKey) return;
+  if (!hud.titleScreen.classList.contains('hidden')) return;
   if (gameState.scene !== 'town') return;
   if (!currentScene || currentScene.scene.key !== 'TownScene') return;
-  if (!currentScene.activeInteractable) return;
+  const target = resolveTownInteractable(currentScene);
+  if (!target) return;
   event.preventDefault();
   event.stopImmediatePropagation();
   activateTownInteractable(currentScene);
 }, true);
+
+function isTownInteractKey(event) {
+  const key = event.key || '';
+  return event.code === 'Space' || key === ' ' || key === 'Space' || key === 'Spacebar' || key.toLowerCase() === 'e';
+}
+
+function createTownDialogueOverlay() {
+  townDialogue.root = document.createElement('section');
+  townDialogue.root.className = 'town-dialogue-overlay';
+  townDialogue.root.hidden = true;
+  townDialogue.root.setAttribute('aria-live', 'polite');
+  townDialogue.root.setAttribute('aria-label', 'Village dialogue');
+  townDialogue.root.innerHTML = `
+    <div class="town-dialogue-avatar">
+      <img src="${ASSETS.villagerIdle}" alt="">
+    </div>
+    <div class="town-dialogue-copy">
+      <strong></strong>
+      <p></p>
+    </div>
+    <button type="button">Close</button>
+  `;
+  townDialogue.avatar = townDialogue.root.querySelector('img');
+  townDialogue.name = townDialogue.root.querySelector('strong');
+  townDialogue.line = townDialogue.root.querySelector('p');
+  townDialogue.root.querySelector('button').addEventListener('click', () => {
+    closeTownDialogue();
+  });
+  document.body.appendChild(townDialogue.root);
+}
+
+function syncTownDialogueOverlay(mode) {
+  if (!townDialogue.root) return;
+  const isNpcPanel = mode === 'town' && townPanelMode.startsWith('npc:');
+  if (!isNpcPanel) {
+    townDialogue.root.hidden = true;
+    return;
+  }
+  const npc = getNpcDialogue(townPanelMode.split(':')[1]);
+  if (!npc) {
+    townDialogue.root.hidden = true;
+    return;
+  }
+  townDialogue.name.textContent = npc.name;
+  townDialogue.line.textContent = npc.line;
+  townDialogue.root.hidden = false;
+}
 
 class BootScene extends Phaser.Scene {
   constructor() {
@@ -242,6 +300,7 @@ class BootScene extends Phaser.Scene {
       });
     });
     loadCharacterWalkSheets(this);
+    loadCharacterBattleSheets(this);
   }
 
   create() {
@@ -272,6 +331,12 @@ class TownScene extends Phaser.Scene {
     this.wasd = this.input.keyboard.addKeys('W,A,S,D');
     this.input.keyboard.on('keydown-C', () => toggleTownCollisionDebug(this));
     this.input.keyboard.on('keydown-F3', () => toggleTownCollisionDebug(this));
+    this.input.keyboard.on('keydown-SPACE', event => {
+      if (!hud.titleScreen.classList.contains('hidden')) return;
+      if (!resolveTownInteractable(this) && !isNpcDialogueOpen()) return;
+      event?.event?.preventDefault();
+      activateTownInteractable(this);
+    });
     this.input.on('pointerdown', pointer => {
       const target = this.activeInteractable;
       if (!target) return;
@@ -344,7 +409,10 @@ function renderBattleActors(scene) {
     const [xPct, yPct] = partyPositions[index] || [0.18 + index * 0.08, 0.68];
     const x = scene.scale.width * xPct;
     const y = scene.scale.height * yPct;
-    const view = addToken(scene, x, y, null, member.name, member.battleSpriteKey || member.spriteKey || 'heroKael', 0.7);
+    const view = addToken(scene, x, y, null, member.name, member.battleSpriteKey || member.spriteKey || 'heroKael', 0.7, {
+      member,
+      battle: true
+    });
     view.baseX = x;
     view.baseY = y;
     view.actorId = member.id;
@@ -379,6 +447,9 @@ function refreshBattleActors(scene) {
     view.targetGlow?.setVisible(targeted || endangered);
     view.targetGlow?.setFillStyle(targeted ? 0x66d17b : 0xef6f6c, targeted ? 0.16 : 0.1);
     view.targetTag?.setVisible(targeted && previewTargetId !== 'allParty');
+    if (!view.isPlayingBattleAction && view.battleDeathFrame !== null && view.battleDeathFrame !== undefined) {
+      view.sprite?.setFrame(member.hp > 0 ? view.battleIdleFrame : view.battleDeathFrame);
+    }
     view.setScale(member.id === activeActorId ? 1.04 : targeted ? 1.03 : 1);
   });
   gameState.battle.enemies.forEach((enemy, index) => {
@@ -534,6 +605,7 @@ function animateAction(scene, fx, targetViews) {
   const isHelpful = fx.type === 'heal' || fx.type === 'shield' || fx.type === 'guard' || fx.type === 'buff';
   playSound(fx.type);
   if (actorView && fx.type !== 'heal') {
+    playBattleAttackAnimation(scene, actorView);
     const direction = actorView.actorSide === 'party' ? 1 : -1;
     scene.tweens.add({
       targets: actorView,
@@ -562,6 +634,26 @@ function animateAction(scene, fx, targetViews) {
       repeat: 2,
       ease: 'Stepped'
     });
+  });
+}
+
+function playBattleAttackAnimation(scene, actorView) {
+  if (!actorView?.sprite || !actorView.battleAttackFrames?.length) return;
+  actorView.isPlayingBattleAction = true;
+  actorView.sprite.stop?.();
+  actorView.battleAttackFrames.forEach((frame, index) => {
+    scene.time.delayedCall(index * 70, () => {
+      if (!actorView.active || !actorView.sprite?.active) return;
+      actorView.sprite.setFrame(frame);
+    });
+  });
+  scene.time.delayedCall(actorView.battleAttackFrames.length * 70 + 60, () => {
+    if (!actorView.active || !actorView.sprite?.active) return;
+    const isDefeated = actorView.actorSide === 'party'
+      ? gameState.party.find(member => member.id === actorView.actorId)?.hp <= 0
+      : false;
+    actorView.sprite.setFrame(isDefeated ? actorView.battleDeathFrame : actorView.battleIdleFrame);
+    actorView.isPlayingBattleAction = false;
   });
 }
 
@@ -659,9 +751,20 @@ function fitBackground(scene, key, alpha = 1) {
 function loadCharacterWalkSheets(scene) {
   Object.values(CHARACTER_WALK_SHEETS).forEach(sheet => {
     if (!sheet.path) return;
+    const format = sheet.format || CHARACTER_SPRITESHEET_FORMAT;
     scene.load.spritesheet(sheet.key, sheet.path, {
-      frameWidth: CHARACTER_SPRITESHEET_FORMAT.frameWidth,
-      frameHeight: CHARACTER_SPRITESHEET_FORMAT.frameHeight
+      frameWidth: format.frameWidth,
+      frameHeight: format.frameHeight
+    });
+  });
+}
+
+function loadCharacterBattleSheets(scene) {
+  Object.values(CHARACTER_BATTLE_SHEETS).forEach(sheet => {
+    if (!sheet.path) return;
+    scene.load.spritesheet(sheet.key, sheet.path, {
+      frameWidth: sheet.frameWidth,
+      frameHeight: sheet.frameHeight
     });
   });
 }
@@ -669,10 +772,11 @@ function loadCharacterWalkSheets(scene) {
 function createCharacterAnimations(scene) {
   Object.values(CHARACTER_WALK_SHEETS).forEach(sheet => {
     if (!scene.textures.exists(sheet.key)) return;
-    CHARACTER_SPRITESHEET_FORMAT.directions.forEach(direction => {
-      const row = CHARACTER_SPRITESHEET_FORMAT.rows[direction];
-      const idleFrame = row * CHARACTER_SPRITESHEET_FORMAT.columns + CHARACTER_SPRITESHEET_FORMAT.idleColumn;
-      const walkFrames = CHARACTER_SPRITESHEET_FORMAT.walkColumns.map(column => row * CHARACTER_SPRITESHEET_FORMAT.columns + column);
+    const format = sheet.format || CHARACTER_SPRITESHEET_FORMAT;
+    format.directions.forEach(direction => {
+      const row = format.rows[direction];
+      const idleFrame = row * format.columns + format.idleColumn;
+      const walkFrames = format.walkColumns.map(column => row * format.columns + column);
       scene.anims.create({
         key: getCharacterAnimKey(sheet.key, 'idle', direction),
         frames: [{ key: sheet.key, frame: idleFrame }],
@@ -701,12 +805,20 @@ function createEnemyIdleAnimations(scene) {
   });
 }
 
-function createCharacterDisplay(scene, member, fallbackKey, y) {
+function createCharacterDisplay(scene, member, fallbackKey, y, options = {}) {
+  const battleSheet = options.battle && member ? CHARACTER_BATTLE_SHEETS[member.id] : null;
+  if (battleSheet && scene.textures.exists(battleSheet.key)) {
+    const sprite = scene.add.sprite(0, y, battleSheet.key, battleSheet.idleFrame || 0);
+    sprite.battleIdleFrame = battleSheet.idleFrame || 0;
+    sprite.battleDeathFrame = battleSheet.deathFrame;
+    sprite.battleAttackFrames = battleSheet.attackFrames || [];
+    sprite.characterScaleBoost = battleSheet.scaleBoost ?? 1;
+    return sprite;
+  }
   const sheet = member ? CHARACTER_WALK_SHEETS[member.id] : null;
-  if (sheet && scene.textures.exists(sheet.key)) {
+  if (!options.battle && sheet && scene.textures.exists(sheet.key)) {
     const sprite = scene.add.sprite(0, y, sheet.key, 0);
-    // Walk frames are 64px vs 128px single images: boost to match display size.
-    sprite.walkSheetScaleBoost = 2;
+    sprite.characterScaleBoost = sheet.scaleBoost ?? 2;
     return sprite;
   }
   return scene.add.image(0, y, fallbackKey);
@@ -903,6 +1015,7 @@ function setupTownInteractables(scene) {
       y: scene.scale.height * npc.y,
       label: `Talk to ${npc.name}`,
       panel: npc.panel,
+      radius: TOWN_NPC_INTERACT_RADIUS,
       locked: false
     });
   });
@@ -914,6 +1027,7 @@ function setupTownInteractables(scene) {
       label: area.name,
       panel: `expedition:${areaId}`,
       areaId,
+      radius: TOWN_INTERACT_RADIUS,
       locked: !isAreaUnlocked(areaId)
     });
   });
@@ -931,16 +1045,11 @@ function setupTownInteractables(scene) {
 function updateTownInteractions(scene) {
   const view = scene.townPlayerView;
   if (!view || !scene.interactPrompt) return;
-  let nearest = null;
-  let nearestDistance = TOWN_INTERACT_RADIUS;
-  scene.townInteractables?.forEach(entry => {
-    const distance = Phaser.Math.Distance.Between(view.x, view.y, entry.x, entry.y);
-    if (distance < nearestDistance) {
-      nearest = entry;
-      nearestDistance = distance;
-    }
-  });
+  const nearest = getNearestTownInteractable(scene);
   scene.activeInteractable = nearest && !nearest.locked ? nearest : null;
+  if (isNpcDialogueOpen() && !isCurrentNpcTarget(scene.activeInteractable)) {
+    closeTownDialogue();
+  }
   if (!nearest) {
     scene.interactPrompt.setVisible(false);
     return;
@@ -951,11 +1060,53 @@ function updateTownInteractions(scene) {
     .setVisible(true);
 }
 
+function getNearestTownInteractable(scene) {
+  const view = scene.townPlayerView;
+  if (!view) return null;
+  let nearest = null;
+  let nearestDistance = Infinity;
+  scene.townInteractables?.forEach(entry => {
+    const distance = Phaser.Math.Distance.Between(view.x, view.y, entry.x, entry.y);
+    const radius = entry.radius || TOWN_INTERACT_RADIUS;
+    if (distance <= radius && distance < nearestDistance) {
+      nearest = entry;
+      nearestDistance = distance;
+    }
+  });
+  return nearest;
+}
+
+function resolveTownInteractable(scene) {
+  if (scene.activeInteractable) return scene.activeInteractable;
+  const nearest = getNearestTownInteractable(scene);
+  scene.activeInteractable = nearest && !nearest.locked ? nearest : null;
+  return scene.activeInteractable;
+}
+
 function activateTownInteractable(scene) {
-  const target = scene.activeInteractable;
+  const target = resolveTownInteractable(scene);
+  if (isNpcDialogueOpen()) {
+    if (!target || target.panel === townPanelMode) {
+      closeTownDialogue();
+      return;
+    }
+  }
   if (!target || gameState.scene !== 'town') return;
   if (target.areaId) expeditionAreaId = target.areaId;
   townPanelMode = target.panel;
+  renderHud('town');
+}
+
+function isNpcDialogueOpen() {
+  return gameState.scene === 'town' && townPanelMode.startsWith('npc:');
+}
+
+function isCurrentNpcTarget(target) {
+  return Boolean(target && target.panel === townPanelMode);
+}
+
+function closeTownDialogue() {
+  townPanelMode = 'map';
   renderHud('town');
 }
 
@@ -983,6 +1134,8 @@ function addTownParty(scene) {
   scene.townFollowerViews = [];
   scene.townLeaderTrail = [];
   gameState.party.forEach((member, index) => {
+    // Town shows only the lead hero; the full party appears in battle.
+    if (index > 0) return;
     const [xPct, yPct] = positions[index];
     const view = addToken(scene, scene.scale.width * xPct, scene.scale.height * yPct, null, member.name, member.spriteKey || 'heroKael', 0.7, {
       member,
@@ -991,9 +1144,8 @@ function addTownParty(scene) {
     view.baseX = view.x;
     view.baseY = view.y;
     view.facing = 'down';
-    view.isPlayableTownHero = index === 0;
-    if (index === 0) scene.townPlayerView = view;
-    else scene.townFollowerViews.push(view);
+    view.isPlayableTownHero = true;
+    scene.townPlayerView = view;
   });
 }
 
@@ -1063,8 +1215,8 @@ function addToken(scene, x, y, color, label, spriteKey = 'heroKael', spriteScale
   const targetRing = scene.add.ellipse(0, footY, 72, 24)
     .setStrokeStyle(3, 0x66d17b, 0.92)
     .setVisible(false);
-  const sprite = createCharacterDisplay(scene, options.member, spriteKey, spriteY);
-  sprite.setScale(spriteScale * (sprite.walkSheetScaleBoost || 1));
+  const sprite = createCharacterDisplay(scene, options.member, spriteKey, spriteY, options);
+  sprite.setScale(spriteScale * (sprite.characterScaleBoost || 1));
   sprite.setOrigin(0.5, options.footAnchored ? 1 : 0.82);
   if (color !== null && color !== undefined) sprite.setTint(color);
   const targetTag = scene.add.text(0, -112, 'ALLY', {
@@ -1084,6 +1236,9 @@ function addToken(scene, x, y, color, label, spriteKey = 'heroKael', spriteScale
   }).setOrigin(0.5);
   container.add([targetGlow, shadow, targetRing, sprite, name, targetTag]);
   container.sprite = sprite;
+  container.battleIdleFrame = sprite.battleIdleFrame;
+  container.battleDeathFrame = sprite.battleDeathFrame;
+  container.battleAttackFrames = sprite.battleAttackFrames || [];
   container.baseTint = color || null;
   container.walkSheetKey = options.member ? CHARACTER_WALK_SHEETS[options.member.id]?.key : null;
   container.footAnchored = !!options.footAnchored;
@@ -1184,11 +1339,13 @@ function renderHud(mode) {
   hud.settingsTop.hidden = !menuOpen || mode !== 'town';
   hud.root.classList.toggle('menu-open', menuOpen);
   hud.root.classList.toggle('battle-mode', mode === 'battle');
+  hud.root.classList.toggle('town-panel-open', mode === 'town' && townPanelMode !== 'map' && !townPanelMode.startsWith('npc:'));
   hideVictoryOverlay();
   renderParty();
   renderLog();
   if (mode === 'battle') renderBattlePanel();
   else renderTownPanel();
+  syncTownDialogueOverlay(mode);
 }
 
 function getMissionText(mode) {

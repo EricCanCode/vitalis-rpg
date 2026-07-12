@@ -35,11 +35,89 @@ export const CHARACTER_SPRITESHEET_FORMAT = {
   walkColumns: [1, 2, 3]
 };
 
+export const CHARACTER_LARGE_WALK_FORMAT = {
+  frameWidth: 192,
+  frameHeight: 256,
+  columns: 5,
+  directions: ['down', 'left', 'right', 'up'],
+  rows: {
+    down: 0,
+    left: 1,
+    right: 2,
+    up: 3
+  },
+  idleColumn: 0,
+  walkColumns: [1, 2, 3, 4]
+};
+
 export const CHARACTER_WALK_SHEETS = {
-  kael: { key: 'kaelWalk', path: 'assets/sprites/kael_walk.png' },
-  mira: { key: 'miraWalk', path: 'assets/sprites/mira_walk.png' },
-  rowan: { key: 'rowanWalk', path: 'assets/sprites/rowan_walk.png' },
-  nyx: { key: 'nyxWalk', path: 'assets/sprites/nyx_walk.png' }
+  kael: {
+    key: 'kaelWalk',
+    path: 'assets/sprites/kael_walk_sheet.png',
+    format: CHARACTER_LARGE_WALK_FORMAT,
+    scaleBoost: 0.65
+  },
+  mira: {
+    key: 'miraWalk',
+    path: 'assets/sprites/mira_walk_sheet.png',
+    format: CHARACTER_LARGE_WALK_FORMAT,
+    scaleBoost: 0.65
+  },
+  rowan: {
+    key: 'rowanWalk',
+    path: 'assets/sprites/rowan_walk_sheet.png',
+    format: CHARACTER_LARGE_WALK_FORMAT,
+    scaleBoost: 0.65
+  },
+  nyx: {
+    key: 'nyxWalk',
+    path: 'assets/sprites/nyx_walk_sheet.png',
+    format: CHARACTER_LARGE_WALK_FORMAT,
+    scaleBoost: 0.65
+  }
+};
+
+export const CHARACTER_BATTLE_SHEETS = {
+  kael: {
+    key: 'kaelBattleSheet',
+    path: 'assets/sprites/kael_battle_sheet.png',
+    frameWidth: 192,
+    frameHeight: 256,
+    idleFrame: 0,
+    attackFrames: [0, 1, 2, 3, 4],
+    deathFrame: 14,
+    scaleBoost: 0.72
+  },
+  mira: {
+    key: 'miraBattleSheet',
+    path: 'assets/sprites/mira_battle_sheet.png',
+    frameWidth: 192,
+    frameHeight: 256,
+    idleFrame: 0,
+    attackFrames: [0, 1, 2, 3, 4],
+    deathFrame: 14,
+    scaleBoost: 0.72
+  },
+  rowan: {
+    key: 'rowanBattleSheet',
+    path: 'assets/sprites/rowan_battle_sheet.png',
+    frameWidth: 192,
+    frameHeight: 256,
+    idleFrame: 0,
+    attackFrames: [0, 1, 2, 3, 4],
+    deathFrame: 14,
+    scaleBoost: 0.72
+  },
+  nyx: {
+    key: 'nyxBattleSheet',
+    path: 'assets/sprites/nyx_battle_sheet.png',
+    frameWidth: 192,
+    frameHeight: 256,
+    idleFrame: 0,
+    attackFrames: [0, 1, 2, 3, 4],
+    deathFrame: 14,
+    scaleBoost: 0.72
+  }
 };
 
 // Enemy idle sheets are 2 frames of 128x128 (subtle breathing motion).

@@ -109,6 +109,89 @@ select {
   display: block;
 }
 
+.town-dialogue-overlay {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  z-index: 18;
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  width: min(760px, calc(100vw - 48px));
+  min-height: 128px;
+  padding: 18px;
+  border: 1px solid rgba(243, 198, 95, 0.42);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(14, 19, 17, 0.96), rgba(19, 26, 23, 0.92)),
+    rgba(7, 10, 9, 0.94);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.5);
+  transform: translateX(-50%);
+}
+
+.town-dialogue-overlay[hidden] {
+  display: none;
+}
+
+.town-dialogue-avatar {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  overflow: hidden;
+  border: 1px solid rgba(243, 198, 95, 0.34);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(243, 198, 95, 0.22), transparent 62%),
+    rgba(255, 255, 255, 0.06);
+}
+
+.town-dialogue-avatar img {
+  width: 112px;
+  height: 112px;
+  object-fit: contain;
+  image-rendering: auto;
+}
+
+.town-dialogue-copy {
+  min-width: 0;
+}
+
+.town-dialogue-copy strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--gold);
+  font-family: Georgia, serif;
+  font-size: 1.3rem;
+  line-height: 1.1;
+}
+
+.town-dialogue-copy p {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.02rem;
+  line-height: 1.45;
+}
+
+.town-dialogue-overlay button {
+  align-self: start;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.town-dialogue-overlay button:hover {
+  border-color: rgba(243, 198, 95, 0.68);
+  background: rgba(243, 198, 95, 0.14);
+}
+
 #hud {
   display: flex;
   flex-direction: column;
@@ -1551,6 +1634,7 @@ h1 {
 }
 
 #hud.menu-open .context-panel,
+#hud.town-panel-open .context-panel,
 #hud.battle-mode .context-panel {
   opacity: 1;
   transform: translateX(0);
