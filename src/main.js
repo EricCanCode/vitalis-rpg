@@ -78,6 +78,9 @@ const PLAYER_BODY = {
 const PLAYER_COLLISION_STEP = 4;
 const COLLISION_EDGE_GAP = 0.5;
 const TOWN_INTERACT_RADIUS = 90;
+const FOLLOW_TRAIL_STEP = 2;
+const FOLLOW_SPACING = 26;
+const FOLLOW_SNAP_DISTANCE = 2;
 const TOWN_NPCS = [
   { panel: 'npc:quartermaster', name: 'Quartermaster', x: 0.18, y: 0.48, tint: 0xf3c65f },
   { panel: 'npc:innkeeper', name: 'Innkeeper', x: 0.77, y: 0.48, tint: 0xef6f6c }
@@ -266,6 +269,7 @@ class TownScene extends Phaser.Scene {
 
   update(time, delta) {
     updateTownPlayer(this, delta);
+    updateTownFollowers(this, delta);
     updateTownInteractions(this);
   }
 }
@@ -954,6 +958,8 @@ function addTownParty(scene) {
     [0.47, 0.70],
     [0.57, 0.70]
   ];
+  scene.townFollowerViews = [];
+  scene.townLeaderTrail = [];
   gameState.party.forEach((member, index) => {
     const [xPct, yPct] = positions[index];
     const view = addToken(scene, scene.scale.width * xPct, scene.scale.height * yPct, null, member.name, member.spriteKey || 'heroKael', 0.7, {
@@ -965,6 +971,42 @@ function addTownParty(scene) {
     view.facing = 'down';
     view.isPlayableTownHero = index === 0;
     if (index === 0) scene.townPlayerView = view;
+    else scene.townFollowerViews.push(view);
+  });
+}
+
+function updateTownFollowers(scene, delta) {
+  const leader = scene.townPlayerView;
+  const followers = scene.townFollowerViews;
+  if (!leader || !followers?.length) return;
+  const trail = scene.townLeaderTrail;
+  const last = trail[trail.length - 1];
+  if (!last || Math.hypot(leader.x - last.x, leader.y - last.y) >= FOLLOW_TRAIL_STEP) {
+    trail.push({ x: leader.x, y: leader.y });
+    const maxLength = FOLLOW_SPACING * (followers.length + 1) + 8;
+    if (trail.length > maxLength) trail.splice(0, trail.length - maxLength);
+  }
+  followers.forEach((view, index) => {
+    const target = trail[trail.length - 1 - FOLLOW_SPACING * (index + 1)];
+    if (!target) {
+      playCharacterMotion(view, false);
+      return;
+    }
+    const dx = target.x - view.x;
+    const dy = target.y - view.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance <= FOLLOW_SNAP_DISTANCE) {
+      playCharacterMotion(view, false);
+      return;
+    }
+    const stepDistance = Math.min(distance, PLAYER_MOVE_SPEED * 1.15 * (delta / 1000));
+    view.x += (dx / distance) * stepDistance;
+    view.y += (dy / distance) * stepDistance;
+    view.facing = getFacingFromInput({ x: dx, y: dy }, view.facing || 'down');
+    playCharacterMotion(view, true);
+    view.baseX = view.x;
+    view.baseY = view.y;
+    view.setDepth(Math.round(view.y));
   });
 }
 
