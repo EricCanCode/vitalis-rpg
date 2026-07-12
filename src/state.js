@@ -1,4 +1,5 @@
 import { ABILITY_UNLOCKS, AREAS, BESTIARY, ITEMS, LOOT_TABLES, NPC_DIALOGUE, PARTY_TEMPLATE, QUESTS, SPELLS, STORY_EVENTS, WEAPONS } from './data.js';
+import { getDifficulty } from './settings.js';
 
 const SAVE_KEY = 'vitalis-rpg-v2-save';
 
@@ -242,6 +243,14 @@ export function startEncounter(areaId = gameState.currentAreaId) {
   const area = AREAS.find(entry => entry.id === gameState.currentAreaId) || AREAS[0];
   const progress = gameState.areaProgress[area.id] || { wins: 0, nextEncounter: 0 };
   const encounter = structuredClone(area.encounters[progress.nextEncounter % area.encounters.length]);
+  const enemyScale = getDifficulty().enemyScale;
+  if (enemyScale !== 1) {
+    encounter.enemies.forEach(enemy => {
+      enemy.maxHp = Math.max(1, Math.round(enemy.maxHp * enemyScale));
+      enemy.hp = enemy.maxHp;
+      enemy.atk = Math.max(1, Math.round(enemy.atk * enemyScale));
+    });
+  }
   discoverEnemies(encounter.enemies);
   gameState.battle = {
     areaId: area.id,

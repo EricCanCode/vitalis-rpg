@@ -34,6 +34,7 @@ import {
 } from './state.js';
 import { IntroScene } from './intro.js';
 import { playSound } from './audio.js';
+import { DIFFICULTIES, effectsEnabled, getDifficulty, settings, updateSetting } from './settings.js';
 
 const hud = {
   root: document.getElementById('hud'),
@@ -46,6 +47,8 @@ const hud = {
   potions: document.getElementById('potions-pill'),
   save: document.getElementById('save-pill'),
   menu: document.getElementById('menu-toggle'),
+  settingsTop: document.getElementById('settings-top'),
+  titleSettings: document.getElementById('title-settings'),
   reset: document.getElementById('new-game-top'),
   party: document.getElementById('party-list'),
   copy: document.getElementById('context-copy'),
@@ -144,6 +147,41 @@ hud.menu.addEventListener('click', () => {
   menuOpen = !menuOpen;
   renderHud(gameState.scene === 'battle' ? 'battle' : 'town');
 });
+
+hud.settingsTop.addEventListener('click', () => {
+  if (gameState.scene !== 'town') return;
+  playSound('click');
+  townPanelMode = 'settings';
+  menuOpen = false;
+  renderHud('town');
+});
+
+function renderTitleSettings() {
+  hud.titleSettings.innerHTML = '';
+  const options = [
+    { label: `Sound ${settings.sound ? 'On' : 'Off'}`, action: () => updateSetting('sound', !settings.sound) },
+    { label: `Effects ${settings.effects ? 'On' : 'Off'}`, action: () => updateSetting('effects', !settings.effects) },
+    { label: `Difficulty ${getDifficulty().label}`, action: () => updateSetting('difficulty', nextDifficultyId()) }
+  ];
+  options.forEach(option => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = option.label;
+    button.addEventListener('click', () => {
+      option.action();
+      playSound('click');
+      renderTitleSettings();
+    });
+    hud.titleSettings.appendChild(button);
+  });
+}
+
+function nextDifficultyId() {
+  const index = DIFFICULTIES.findIndex(entry => entry.id === settings.difficulty);
+  return DIFFICULTIES[(index + 1) % DIFFICULTIES.length].id;
+}
+
+renderTitleSettings();
 
 document.addEventListener('keydown', event => {
   if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -501,11 +539,13 @@ function spawnActionEffect(scene, fx, targetView, index, color) {
   const actorView = [...scene.partyViews, ...scene.enemyViews].find(view => view.actorId === fx.actorId);
   const isHelpful = fx.type === 'heal' || fx.type === 'shield' || fx.type === 'guard' || fx.type === 'buff';
   const numberY = isHelpful ? targetView.y - 74 : targetView.y - 82 - index * 8;
-  if (actorView && actorView !== targetView && !isHelpful) {
-    addStrikeTrail(scene, actorView, targetView, fx);
+  if (effectsEnabled()) {
+    if (actorView && actorView !== targetView && !isHelpful) {
+      addStrikeTrail(scene, actorView, targetView, fx);
+    }
+    if (isHelpful) addSupportBurst(scene, targetView, color, fx);
+    else addImpactBurst(scene, targetView, color, fx);
   }
-  if (isHelpful) addSupportBurst(scene, targetView, color, fx);
-  else addImpactBurst(scene, targetView, color, fx);
   addFloatingNumber(scene, targetView.x, numberY, fx.label, color);
   flashSprite(scene, targetView, isHelpful ? 0x66d17b : 0xffffff);
 }
@@ -1053,6 +1093,7 @@ function renderHud(mode) {
   hud.menu.setAttribute('aria-expanded', String(menuOpen));
   hud.menu.setAttribute('aria-controls', 'context-panel');
   hud.reset.hidden = !menuOpen;
+  hud.settingsTop.hidden = !menuOpen || mode !== 'town';
   hud.root.classList.toggle('menu-open', menuOpen);
   hud.root.classList.toggle('battle-mode', mode === 'battle');
   hideVictoryOverlay();
@@ -1144,6 +1185,10 @@ function renderTownPanel() {
     renderSuppliesPanel();
     return;
   }
+  if (townPanelMode === 'settings') {
+    renderSettingsPanel();
+    return;
+  }
   if (townPanelMode.startsWith('npc:')) {
     renderNpcPanel(townPanelMode.split(':')[1]);
     return;
@@ -1226,6 +1271,43 @@ function renderMapPanel() {
     townPanelMode = 'map';
     currentScene.scene.restart();
   }, 'wide');
+}
+
+function renderSettingsPanel() {
+  const difficulty = getDifficulty();
+  hud.copy.innerHTML = `
+    <strong>Settings</strong><br>
+    Preferences persist across saves and new games.
+    <div class="settings-list">
+      <span><strong>Sound</strong><em>${settings.sound ? 'On' : 'Off'} - battle and interface cues</em></span>
+      <span><strong>Effects</strong><em>${settings.effects ? 'On' : 'Off'} - screen shake and impact flourishes</em></span>
+      <span><strong>Difficulty</strong><em>${difficulty.label} - ${difficulty.note}</em></span>
+    </div>
+    <small>Difficulty applies to encounters started after the change.</small>
+  `;
+  hud.actions.innerHTML = '';
+  addButton('World Map', () => {
+    townPanelMode = 'map';
+    renderHud('town');
+  }, 'wide secondary-action');
+  addButton(`Sound: ${settings.sound ? 'On' : 'Off'}`, () => {
+    updateSetting('sound', !settings.sound);
+    renderTitleSettings();
+    renderHud('town');
+  });
+  addButton(`Effects: ${settings.effects ? 'On' : 'Off'}`, () => {
+    updateSetting('effects', !settings.effects);
+    renderTitleSettings();
+    renderHud('town');
+  });
+  DIFFICULTIES.forEach(entry => {
+    const button = addButton(`${entry.label}${entry.id === settings.difficulty ? ' (current)' : ''}`, () => {
+      updateSetting('difficulty', entry.id);
+      renderTitleSettings();
+      renderHud('town');
+    }, entry.id === settings.difficulty ? 'area-action' : '', entry.note);
+    button.disabled = entry.id === settings.difficulty;
+  });
 }
 
 function renderExpeditionPanel(areaId) {
