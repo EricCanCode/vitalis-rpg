@@ -256,6 +256,7 @@ class TownScene extends Phaser.Scene {
     this.wasd = this.input.keyboard.addKeys('W,A,S,D');
     this.input.keyboard.on('keydown-C', () => toggleTownCollisionDebug(this));
     this.input.keyboard.on('keydown-F3', () => toggleTownCollisionDebug(this));
+    this.input.keyboard.on('keydown-SPACE', () => activateTownInteractable(this));
     this.input.keyboard.on('keydown-E', () => activateTownInteractable(this));
     this.add.text(this.scale.width * 0.5, this.scale.height * 0.82, 'Village Hub', {
       fontFamily: 'Georgia, serif',
@@ -924,7 +925,7 @@ function updateTownInteractions(scene) {
     return;
   }
   scene.interactPrompt
-    .setText(nearest.locked ? `${nearest.label} (locked)` : `E - ${nearest.label}`)
+    .setText(nearest.locked ? `${nearest.label} (locked)` : `Space - ${nearest.label}`)
     .setPosition(nearest.x, nearest.y - 56)
     .setVisible(true);
 }
@@ -2367,6 +2368,7 @@ function addVictoryButton(label, handler, className = '') {
   if (className) button.className = className;
   button.addEventListener('click', () => {
     playSound('click');
+    button.blur();
     handler();
   });
   hud.victoryActions.appendChild(button);
@@ -2392,6 +2394,8 @@ function addButton(label, handler, className = '', note = '') {
   if (className) button.className = className;
   button.addEventListener('click', () => {
     playSound('click');
+    // Drop focus so Space (the town interact key) can't re-trigger this button.
+    button.blur();
     handler();
   });
   hud.actions.appendChild(button);
