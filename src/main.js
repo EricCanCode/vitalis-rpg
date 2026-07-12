@@ -244,6 +244,13 @@ document.addEventListener('keydown', event => {
   const isInteractKey = isTownInteractKey(event);
   if (!isInteractKey) return;
   if (!hud.titleScreen.classList.contains('hidden')) return;
+  // A scripted story exchange advances from any scene.
+  if (townDialogue.active && !townDialogue.root?.hidden) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    advanceTownDialogue();
+    return;
+  }
   if (gameState.scene !== 'town') return;
   if (!currentScene || !['TownScene', 'InnScene'].includes(currentScene.scene.key)) return;
   const target = resolveTownInteractable(currentScene);
@@ -293,11 +300,15 @@ function createTownDialogueOverlay() {
   if (typeof window !== 'undefined') {
     window.__VITALIS_DIALOGUE__ = townDialogue;
     window.__advanceDialogue__ = advanceTownDialogue;
+    window.__startStoryDialogue__ = startStoryDialogue;
+    window.__heroLine__ = heroLine;
   }
 }
 
 function syncTownDialogueOverlay(mode) {
   if (!townDialogue.root) return;
+  // Story dialogues drive themselves; a HUD re-render must not disturb them.
+  if (townDialogue.source === 'story') return;
   const isNpcPanel = mode === 'town' && townPanelMode.startsWith('npc:');
   if (!isNpcPanel) {
     hideTownDialogue();
@@ -309,22 +320,78 @@ function syncTownDialogueOverlay(mode) {
     hideTownDialogue();
     return;
   }
-  townDialogue.root.hidden = false;
-  townDialogue.name.textContent = npc.name;
-  townDialogue.avatar.src = npc.portrait || ASSETS.villagerIdle;
-  // Only (re)start the conversation when the NPC actually changes, so a HUD
-  // re-render mid-conversation doesn't reset the typewriter.
-  if (townDialogue.npcKey !== npcKey) {
-    townDialogue.npcKey = npcKey;
-    townDialogue.pages = npc.pages.length ? npc.pages : [npc.line];
-    townDialogue.pageIndex = 0;
-    beginTypewriterPage();
+  // Only (re)start when the NPC actually changes, so a HUD re-render
+  // mid-conversation doesn't reset the typewriter.
+  if (townDialogue.npcKey === npcKey && townDialogue.active) {
+    townDialogue.root.hidden = false;
+    return;
   }
+  const pages = (npc.pages.length ? npc.pages : [npc.line]).map(text => ({
+    name: npc.name,
+    portrait: npc.portrait || ASSETS.villagerIdle,
+    text
+  }));
+  openConversation({ pages, source: 'npc', npcKey });
+}
+
+// Opens the dialogue box for any conversation. Each page is
+// { name, portrait, text }. source 'npc' returns to the town panel on close;
+// source 'story' runs its onComplete callback.
+function openConversation({ pages, source, npcKey = null, onComplete = null }) {
+  townDialogue.pages = pages.length ? pages : [{ name: '', portrait: ASSETS.villagerIdle, text: '' }];
+  townDialogue.source = source;
+  townDialogue.npcKey = npcKey;
+  townDialogue.onComplete = onComplete;
+  townDialogue.pageIndex = 0;
+  townDialogue.active = true;
+  townDialogue.root.hidden = false;
+  beginTypewriterPage();
+}
+
+// Play a scripted exchange (party members, story voices) through the same
+// box. entries: [{ name, portrait, text }]; long text auto-paginates.
+function startStoryDialogue(entries, onComplete = null) {
+  const pages = [];
+  entries.forEach(entry => {
+    const portrait = entry.portrait || ASSETS.villagerIdle;
+    paginateStoryText(entry.text).forEach(text => pages.push({ name: entry.name || '', portrait, text }));
+  });
+  if (!pages.length) {
+    if (onComplete) onComplete();
+    return;
+  }
+  openConversation({ pages, source: 'story', onComplete });
+}
+
+function paginateStoryText(text) {
+  const sentences = String(text).match(/[^.!?]+[.!?]+["')\]]?\s*/g);
+  if (!sentences || sentences.length <= 1) return [String(text).trim()];
+  const pages = [];
+  sentences.forEach(raw => {
+    const sentence = raw.trim();
+    if (sentence.length < 22 && pages.length) pages[pages.length - 1] += ` ${sentence}`;
+    else pages.push(sentence);
+  });
+  return pages;
+}
+
+// Portrait for a party member (falls back to their overworld sprite).
+function heroPortrait(id) {
+  const member = gameState.party.find(entry => entry.id === id);
+  return member?.portrait || ASSETS.villagerIdle;
+}
+
+function heroLine(id, text) {
+  const member = gameState.party.find(entry => entry.id === id);
+  return { name: member?.name || id, portrait: heroPortrait(id), text };
 }
 
 function beginTypewriterPage() {
   clearTypewriter();
-  townDialogue.fullText = townDialogue.pages[townDialogue.pageIndex] || '';
+  const page = townDialogue.pages[townDialogue.pageIndex] || { name: '', portrait: ASSETS.villagerIdle, text: '' };
+  townDialogue.name.textContent = page.name || '';
+  townDialogue.avatar.src = page.portrait || ASSETS.villagerIdle;
+  townDialogue.fullText = page.text || '';
   townDialogue.shownChars = 0;
   townDialogue.typing = true;
   townDialogue.line.textContent = '';
@@ -355,7 +422,7 @@ function clearTypewriter() {
 }
 
 function advanceTownDialogue() {
-  if (townDialogue.root?.hidden) return false;
+  if (!townDialogue.active || townDialogue.root?.hidden) return false;
   if (townDialogue.typing) {
     finishTypewriterPage();
     return true;
@@ -365,14 +432,28 @@ function advanceTownDialogue() {
     beginTypewriterPage();
     return true;
   }
-  closeTownDialogue();
+  finishConversation();
   return true;
+}
+
+function finishConversation() {
+  const source = townDialogue.source;
+  const onComplete = townDialogue.onComplete;
+  hideTownDialogue();
+  if (source === 'story') {
+    if (onComplete) onComplete();
+  } else {
+    closeTownDialogue();
+  }
 }
 
 function hideTownDialogue() {
   clearTypewriter();
   townDialogue.root.hidden = true;
   townDialogue.typing = false;
+  townDialogue.active = false;
+  townDialogue.source = null;
+  townDialogue.onComplete = null;
   townDialogue.npcKey = null;
 }
 
@@ -1255,7 +1336,7 @@ function updateTownInteractions(scene) {
     closeTownDialogue();
   }
   // Hide the world-space prompt while a conversation box is open.
-  if (!nearest || (isNpcDialogueOpen() && !townDialogue.root?.hidden)) {
+  if (!nearest || (townDialogue.active && !townDialogue.root?.hidden)) {
     scene.interactPrompt.setVisible(false);
     return;
   }
@@ -1289,14 +1370,11 @@ function resolveTownInteractable(scene) {
 }
 
 function activateTownInteractable(scene) {
-  // While a conversation is open, the interact key pages through it
-  // (finishing the current line, advancing, then closing on the last page).
-  if (isNpcDialogueOpen() && !townDialogue.root?.hidden) {
-    const target = resolveTownInteractable(scene);
-    if (!target || target.panel === townPanelMode) {
-      advanceTownDialogue();
-      return;
-    }
+  // While any conversation is open (NPC or scripted story beat), the interact
+  // key pages through it: finish the current line, advance, then close.
+  if (townDialogue.active && !townDialogue.root?.hidden) {
+    advanceTownDialogue();
+    return;
   }
   const target = resolveTownInteractable(scene);
   if (!target || gameState.scene !== 'town') return;
@@ -2998,8 +3076,16 @@ function estimateSpellDamage(actor, spell, enemy) {
 function addRestButton(className = '') {
   const fullyRecovered = gameState.party.every(member => member.hp === member.maxHp && member.mp === member.maxMp);
   const button = addButton('Rest 10g', () => {
-    camp();
+    const rested = camp();
     renderHud('town');
+    // A short party moment at the inn fireside (Chrono Trigger-style beat).
+    if (rested && currentScene?.scene?.key === 'InnScene') {
+      startStoryDialogue([
+        heroLine('kael', "Rest while we can. The road won't wait on us."),
+        heroLine('mira', 'Speak for yourself. I intend to enjoy the fire while it lasts.'),
+        heroLine('rowan', 'We move at first light, then. Everyone whole.')
+      ]);
+    }
   }, className, fullyRecovered ? 'Party is already fully recovered.' : 'Restore all HP and MP.');
   button.disabled = fullyRecovered || gameState.gold < 10;
   button.title = fullyRecovered ? 'Party is already fully recovered.' : gameState.gold < 10 ? 'Need 10 gold to rest.' : 'Restore all HP and MP.';
