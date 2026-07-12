@@ -36,7 +36,7 @@ import {
   xpToNextLevel
 } from './state.js';
 import { IntroScene } from './intro.js';
-import { playSound } from './audio.js';
+import { playAmbient, playMusicTheme, playSound } from './audio.js';
 import { DIFFICULTIES, effectsEnabled, getDifficulty, settings, updateSetting } from './settings.js';
 
 const hud = {
@@ -529,6 +529,8 @@ class TownScene extends Phaser.Scene {
 
   create() {
     currentScene = this;
+    playSceneMusic('town');
+    addSceneAmbience(this, 'town');
     configureTownCollision(this);
     fitBackground(this, 'town');
     addAtmosphere(this);
@@ -594,6 +596,8 @@ class WorldMapScene extends Phaser.Scene {
 
   create() {
     currentScene = this;
+    playSceneMusic('world');
+    addSceneAmbience(this, 'world');
     expeditionAreaId = expeditionAreaId || gameState.currentAreaId || AREAS[0].id;
     townPanelMode = townPanelMode.startsWith('expedition:') ? townPanelMode : 'map';
     this.worldMapTraveling = false;
@@ -626,6 +630,8 @@ class InnScene extends Phaser.Scene {
 
   create() {
     currentScene = this;
+    playSceneMusic('inn');
+    addSceneAmbience(this, 'inn');
     townPanelMode = townPanelMode.startsWith('npc:') ? townPanelMode : 'inn';
     drawInnInterior(this);
     configureInteriorCollision(this);
@@ -659,6 +665,8 @@ class BattleScene extends Phaser.Scene {
   create() {
     currentScene = this;
     const area = getBattleArea();
+    playSceneMusic(area?.id || 'battle');
+    addSceneAmbience(this, area?.id || 'battle');
     const theme = getAreaTheme(area?.id);
     this.cameras.main.setBackgroundColor('#101918');
     fitBackground(this, theme.battleKey, theme.battleAlpha ?? 0.5);
@@ -1029,6 +1037,47 @@ function flashSprite(scene, view, tint) {
 
 function colorToNumber(color) {
   return Number.parseInt(color.replace('#', ''), 16);
+}
+
+function playSceneMusic(themeId) {
+  playMusicTheme(themeId || 'town');
+}
+
+function getCurrentMusicTheme() {
+  if (gameState.scene === 'battle') return getBattleArea()?.id || 'battle';
+  if (isWorldMapOpen()) return 'world';
+  if (currentScene?.scene?.key === 'InnScene') return 'inn';
+  return 'town';
+}
+
+function addSceneAmbience(scene, themeId) {
+  playAmbient(themeId, 0.8);
+  scene.ambientTimer = scene.time.addEvent({
+    delay: 9000 + Math.floor(Math.random() * 4000),
+    loop: true,
+    callback: () => playAmbient(themeId, 0.72)
+  });
+}
+
+function circularWipeToScene(scene, nextSceneKey, options = {}) {
+  if (!scene?.cameras?.main) {
+    scene?.scene?.start(nextSceneKey, options.data);
+    return;
+  }
+  const x = options.x ?? scene.scale.width * 0.5;
+  const y = options.y ?? scene.scale.height * 0.5;
+  const radius = Math.hypot(scene.scale.width, scene.scale.height);
+  const wipe = scene.add.circle(x, y, 8, 0x050706, 1)
+    .setDepth(20000)
+    .setScale(0.01);
+  playSound('transition', 0.7);
+  scene.tweens.add({
+    targets: wipe,
+    scale: radius / 8,
+    duration: options.duration || 420,
+    ease: 'Cubic.easeInOut',
+    onComplete: () => scene.scene.start(nextSceneKey, options.data)
+  });
 }
 
 function fitBackground(scene, key, alpha = 1) {
@@ -1479,14 +1528,14 @@ function openWorldMap(areaId = expeditionAreaId || gameState.currentAreaId) {
   townPanelMode = 'map';
   closeTownDialogue();
   menuOpen = false;
-  currentScene?.scene.start('WorldMapScene');
+  circularWipeToScene(currentScene, 'WorldMapScene');
 }
 
 function returnToVillage() {
   if (gameState.scene !== 'town') return;
   townPanelMode = 'map';
   menuOpen = false;
-  currentScene?.scene.start('TownScene');
+  circularWipeToScene(currentScene, 'TownScene');
 }
 
 function enterInn(spawn = 'innDoor') {
@@ -1494,16 +1543,14 @@ function enterInn(spawn = 'innDoor') {
   closeTownDialogue();
   villageSpawn = spawn;
   menuOpen = false;
-  currentScene.cameras.main.fadeOut(180, 10, 10, 10);
-  currentScene.time.delayedCall(180, () => currentScene.scene.start('InnScene'));
+  circularWipeToScene(currentScene, 'InnScene');
 }
 
 function exitInn() {
   if (!currentScene) return;
   closeTownDialogue();
   menuOpen = false;
-  currentScene.cameras.main.fadeOut(180, 10, 10, 10);
-  currentScene.time.delayedCall(180, () => currentScene.scene.start('TownScene'));
+  circularWipeToScene(currentScene, 'TownScene');
 }
 
 function isWorldMapOpen() {
@@ -2413,6 +2460,7 @@ function renderSettingsPanel() {
   addWorldMapButton();
   addButton(`Sound: ${settings.sound ? 'On' : 'Off'}`, () => {
     updateSetting('sound', !settings.sound);
+    if (settings.sound) playSceneMusic(getCurrentMusicTheme());
     renderTitleSettings();
     renderHud('town');
   });
@@ -2479,7 +2527,7 @@ function renderExpeditionPanel(areaId) {
     }
     playSound('encounter');
     menuOpen = false;
-    currentScene.scene.start('BattleScene');
+    circularWipeToScene(currentScene, 'BattleScene');
   }, 'wide area-action');
   addRestButton();
   addButton('Supplies', () => {
@@ -2882,13 +2930,13 @@ function renderBattlePanel() {
         returnToTown();
         camp();
         townPanelMode = 'map';
-        currentScene.scene.start('TownScene');
+        circularWipeToScene(currentScene, 'TownScene');
       }, 'wide area-action', 'Restore the party before trying again.');
     }
     addButton('Return to Town', () => {
       returnToTown();
       townPanelMode = 'map';
-      currentScene.scene.start('TownScene');
+      circularWipeToScene(currentScene, 'TownScene');
     }, 'wide');
     return;
   }
@@ -2965,7 +3013,7 @@ function renderBattlePanel() {
     pushLog('The party retreats to the village.');
     returnToTown();
     townPanelMode = 'map';
-    currentScene.scene.start('TownScene');
+    circularWipeToScene(currentScene, 'TownScene');
   }, 'wide');
 }
 
@@ -3129,7 +3177,7 @@ function addVictoryChoices(area, progress) {
       markEndingSeen();
       townPanelMode = 'map';
       menuOpen = false;
-      currentScene.scene.start('IntroScene', { beats: ENDING_SCENES, next: 'TownScene' });
+      circularWipeToScene(currentScene, 'IntroScene', { data: { beats: ENDING_SCENES, next: 'TownScene' } });
     }, 'primary');
   }
   if (area && !shouldRecommendRest() && !progress?.complete) {
@@ -3141,7 +3189,7 @@ function addVictoryChoices(area, progress) {
         return;
       }
       menuOpen = false;
-      currentScene.scene.start('BattleScene');
+      circularWipeToScene(currentScene, 'BattleScene');
     }, 'primary');
   }
   if (shouldRecommendRest() && gameState.gold >= 10) {
@@ -3151,7 +3199,7 @@ function addVictoryChoices(area, progress) {
       camp();
       townPanelMode = 'map';
       menuOpen = false;
-      currentScene.scene.start('TownScene');
+      circularWipeToScene(currentScene, 'TownScene');
     }, 'primary');
   }
   if ((gameState.inventory.potion || 0) <= 1 && gameState.gold >= ITEMS.potion.cost) {
@@ -3161,7 +3209,7 @@ function addVictoryChoices(area, progress) {
       buyPotion();
       townPanelMode = 'supplies';
       menuOpen = true;
-      currentScene.scene.start('TownScene');
+      circularWipeToScene(currentScene, 'TownScene');
     });
   }
   addVictoryButton(progress?.complete ? 'Return to Map' : 'Return to Town', () => {
@@ -3169,7 +3217,7 @@ function addVictoryChoices(area, progress) {
     returnToTown();
     townPanelMode = 'map';
     menuOpen = false;
-    currentScene.scene.start(progress?.complete ? 'WorldMapScene' : 'TownScene');
+    circularWipeToScene(currentScene, progress?.complete ? 'WorldMapScene' : 'TownScene');
   }, 'secondary');
 }
 
