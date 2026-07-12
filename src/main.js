@@ -150,6 +150,7 @@ const WORLD_MAP_ROUTES = [
   ['old_ruins', 'crystal_cave'],
   ['crystal_cave', 'blackroot_fen']
 ];
+const WORLD_MAP_TRAVEL_SPEED = 320;
 const TOWN_COLLISION_CONFIG = {
   playableArea: {
     label: 'townPlayableBounds',
@@ -595,10 +596,21 @@ class WorldMapScene extends Phaser.Scene {
     currentScene = this;
     expeditionAreaId = expeditionAreaId || gameState.currentAreaId || AREAS[0].id;
     townPanelMode = townPanelMode.startsWith('expedition:') ? townPanelMode : 'map';
+    this.worldMapTraveling = false;
     this.cameras.main.setBackgroundColor('#17201b');
     drawWorldMap(this);
     this.input.keyboard.on('keydown-ESC', () => returnToVillage());
     this.input.keyboard.on('keydown-V', () => returnToVillage());
+    this.input.keyboard.on('keydown-SPACE', () => openCurrentWorldMapNode(this));
+    this.input.keyboard.on('keydown-ENTER', () => openCurrentWorldMapNode(this));
+    this.input.keyboard.on('keydown-W', () => travelWorldMapByDirection(this, { x: 0, y: -1 }));
+    this.input.keyboard.on('keydown-UP', () => travelWorldMapByDirection(this, { x: 0, y: -1 }));
+    this.input.keyboard.on('keydown-S', () => travelWorldMapByDirection(this, { x: 0, y: 1 }));
+    this.input.keyboard.on('keydown-DOWN', () => travelWorldMapByDirection(this, { x: 0, y: 1 }));
+    this.input.keyboard.on('keydown-A', () => travelWorldMapByDirection(this, { x: -1, y: 0 }));
+    this.input.keyboard.on('keydown-LEFT', () => travelWorldMapByDirection(this, { x: -1, y: 0 }));
+    this.input.keyboard.on('keydown-D', () => travelWorldMapByDirection(this, { x: 1, y: 0 }));
+    this.input.keyboard.on('keydown-RIGHT', () => travelWorldMapByDirection(this, { x: 1, y: 0 }));
     renderHud('town');
   }
 
@@ -1830,7 +1842,13 @@ function addWorldMapMarkers(scene, layer) {
       stroke: '#1a1208',
       strokeThickness: 4
     }).setOrigin(0.5, 0);
-    outer.on('pointerdown', () => selectWorldMapArea(scene, area.id));
+    outer.on('pointerdown', () => {
+      if (!unlocked) {
+        selectWorldMapArea(scene, area.id);
+        return;
+      }
+      travelWorldMapTo(scene, area.id, true);
+    });
     outer.on('pointerover', () => {
       outer.setScale(1.08);
       if (unlocked) setWorldMapHint(scene, `${area.name}: ${readiness.label}`);
@@ -1851,15 +1869,27 @@ function addWorldMapMarkers(scene, layer) {
       }).setOrigin(0.5);
       layer.add(lock);
     }
-    if (selected && unlocked) addWorldMapPartyToken(scene, layer, x, y);
   });
+  addWorldMapPartyToken(scene, layer);
 }
 
-function addWorldMapPartyToken(scene, layer, x, y) {
-  const pulse = scene.add.circle(x, y - 30, 12, 0x66d17b, 0.26)
+function addWorldMapPartyToken(scene, layer) {
+  const point = getWorldMapPoint(scene, getSelectedWorldMapAreaId()) || getWorldMapPoint(scene, AREAS[0].id);
+  if (!point) return;
+  const x = point.x;
+  const y = point.y - 30;
+  const pulse = scene.add.circle(0, 0, 12, 0x66d17b, 0.26)
     .setStrokeStyle(2, 0xfff3cc, 0.68);
-  const token = scene.add.circle(x, y - 30, 6, 0xfff3cc, 0.96)
+  const token = scene.add.circle(0, 0, 6, 0xfff3cc, 0.96)
     .setStrokeStyle(2, 0x1a1208, 0.75);
+  const banner = scene.add.text(0, -22, 'Party', {
+    fontFamily: 'Arial, sans-serif',
+    fontSize: '11px',
+    fontStyle: 'bold',
+    color: '#fff3cc',
+    stroke: '#1a1208',
+    strokeThickness: 4
+  }).setOrigin(0.5);
   scene.tweens.add({
     targets: pulse,
     scale: 1.45,
@@ -1869,7 +1899,8 @@ function addWorldMapPartyToken(scene, layer, x, y) {
     repeat: -1,
     ease: 'Sine.easeInOut'
   });
-  layer.add([pulse, token]);
+  scene.worldPartyToken = scene.add.container(x, y, [pulse, token, banner]);
+  layer.add(scene.worldPartyToken);
 }
 
 function setWorldMapHint(scene, text) {
@@ -1884,6 +1915,108 @@ function setWorldMapHint(scene, text) {
     }).setOrigin(0.5);
   }
   scene.worldMapHint.setText(text);
+}
+
+function openCurrentWorldMapNode(scene) {
+  if (scene.worldMapTraveling) return;
+  const areaId = getSelectedWorldMapAreaId();
+  if (!isAreaUnlocked(areaId)) return;
+  selectWorldMapArea(scene, areaId);
+}
+
+function travelWorldMapByDirection(scene, direction) {
+  if (scene.worldMapTraveling) return;
+  const current = getWorldMapPoint(scene, getSelectedWorldMapAreaId());
+  if (!current) return;
+  const candidates = getUnlockedWorldMapNeighbors(getSelectedWorldMapAreaId())
+    .map(areaId => getWorldMapPoint(scene, areaId))
+    .filter(Boolean)
+    .map(point => {
+      const dx = point.x - current.x;
+      const dy = point.y - current.y;
+      const distance = Math.hypot(dx, dy) || 1;
+      const score = (dx / distance) * direction.x + (dy / distance) * direction.y;
+      return { point, score, distance };
+    })
+    .filter(entry => entry.score > 0.35)
+    .sort((a, b) => b.score - a.score || a.distance - b.distance);
+  if (!candidates.length) return;
+  travelWorldMapTo(scene, candidates[0].point.areaId, true);
+}
+
+function travelWorldMapTo(scene, targetAreaId, openOnArrival = false) {
+  if (scene.worldMapTraveling) return;
+  if (!isAreaUnlocked(targetAreaId)) {
+    selectWorldMapArea(scene, targetAreaId);
+    return;
+  }
+  const currentAreaId = getSelectedWorldMapAreaId();
+  if (targetAreaId === currentAreaId) {
+    if (openOnArrival) openCurrentWorldMapNode(scene);
+    return;
+  }
+  const path = getWorldMapPath(currentAreaId, targetAreaId);
+  if (path.length < 2) return;
+  scene.worldMapTraveling = true;
+  setWorldMapHint(scene, `Traveling to ${AREAS.find(area => area.id === targetAreaId)?.name || 'route'}...`);
+  animateWorldMapPath(scene, path.slice(1), openOnArrival);
+}
+
+function animateWorldMapPath(scene, remainingPath, openOnArrival) {
+  const nextAreaId = remainingPath.shift();
+  const nextPoint = getWorldMapPoint(scene, nextAreaId);
+  if (!nextPoint || !scene.worldPartyToken) {
+    scene.worldMapTraveling = false;
+    return;
+  }
+  const targetX = nextPoint.x;
+  const targetY = nextPoint.y - 30;
+  const distance = Math.hypot(targetX - scene.worldPartyToken.x, targetY - scene.worldPartyToken.y);
+  scene.tweens.add({
+    targets: scene.worldPartyToken,
+    x: targetX,
+    y: targetY,
+    duration: Math.max(280, Math.round((distance / WORLD_MAP_TRAVEL_SPEED) * 1000)),
+    ease: 'Sine.easeInOut',
+    onComplete: () => {
+      expeditionAreaId = nextAreaId;
+      selectArea(nextAreaId);
+      if (remainingPath.length) {
+        animateWorldMapPath(scene, remainingPath, openOnArrival);
+        return;
+      }
+      scene.worldMapTraveling = false;
+      setWorldMapHint(scene, 'Press Space to inspect this route.');
+      townPanelMode = openOnArrival ? `expedition:${nextAreaId}` : 'map';
+      renderHud('town');
+      scene.refresh?.();
+    }
+  });
+}
+
+function getUnlockedWorldMapNeighbors(areaId) {
+  return WORLD_MAP_ROUTES
+    .filter(route => route.includes(areaId))
+    .map(([a, b]) => (a === areaId ? b : a))
+    .filter(isAreaUnlocked);
+}
+
+function getWorldMapPath(fromId, toId) {
+  if (fromId === toId) return [fromId];
+  const queue = [[fromId]];
+  const visited = new Set([fromId]);
+  while (queue.length) {
+    const path = queue.shift();
+    const last = path[path.length - 1];
+    for (const next of getUnlockedWorldMapNeighbors(last)) {
+      if (visited.has(next)) continue;
+      const nextPath = [...path, next];
+      if (next === toId) return nextPath;
+      visited.add(next);
+      queue.push(nextPath);
+    }
+  }
+  return [];
 }
 
 function getWorldMapPoint(scene, areaId) {
