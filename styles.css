@@ -1593,12 +1593,42 @@ h1 {
   .party-list {
     grid-column: 1 / -1;
     grid-row: 2;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .resource-row {
     grid-column: 2;
     grid-row: 1;
+  }
+
+  /* Compact cards: portrait, name, and bars only, in one slim row */
+  .party-card {
+    padding: 6px;
+    gap: 4px;
+  }
+
+  .party-card .role,
+  .party-card .stats-line,
+  .party-card .party-card-meta {
+    display: none;
+  }
+
+  .party-card header {
+    grid-template-columns: 26px minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
+  .portrait {
+    width: 26px;
+    height: 26px;
+  }
+
+  .party-card h2 {
+    font-size: 0.74rem;
+  }
+
+  .party-card .level {
+    font-size: 0.65rem;
   }
 }
 
@@ -1612,7 +1642,7 @@ h1 {
   }
 
   .party-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .resource-row {

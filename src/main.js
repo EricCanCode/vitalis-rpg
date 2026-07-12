@@ -199,6 +199,22 @@ document.addEventListener('keydown', event => {
   button.click();
 });
 
+// Town interact key (Space, with E as fallback). Registered on document in
+// the capture phase so it works even when a browser extension intercepts
+// keyboard events at the bubble phase, and independent of Phaser's keyboard
+// plugin entirely.
+document.addEventListener('keydown', event => {
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  const isInteractKey = event.key === ' ' || event.key === 'Spacebar' || event.key.toLowerCase() === 'e';
+  if (!isInteractKey) return;
+  if (gameState.scene !== 'town') return;
+  if (!currentScene || currentScene.scene.key !== 'TownScene') return;
+  if (!currentScene.activeInteractable) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  activateTownInteractable(currentScene);
+}, true);
+
 class BootScene extends Phaser.Scene {
   constructor() {
     super('BootScene');
@@ -256,8 +272,13 @@ class TownScene extends Phaser.Scene {
     this.wasd = this.input.keyboard.addKeys('W,A,S,D');
     this.input.keyboard.on('keydown-C', () => toggleTownCollisionDebug(this));
     this.input.keyboard.on('keydown-F3', () => toggleTownCollisionDebug(this));
-    this.input.keyboard.on('keydown-SPACE', () => activateTownInteractable(this));
-    this.input.keyboard.on('keydown-E', () => activateTownInteractable(this));
+    this.input.on('pointerdown', pointer => {
+      const target = this.activeInteractable;
+      if (!target) return;
+      if (Phaser.Math.Distance.Between(pointer.worldX, pointer.worldY, target.x, target.y) <= TOWN_INTERACT_RADIUS * 1.5) {
+        activateTownInteractable(this);
+      }
+    });
     this.add.text(this.scale.width * 0.5, this.scale.height * 0.82, 'Village Hub', {
       fontFamily: 'Georgia, serif',
       fontSize: '28px',
