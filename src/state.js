@@ -466,7 +466,28 @@ export function getNpcDialogue(npcId) {
   const npc = NPC_DIALOGUE[npcId];
   if (!npc) return null;
   const lineIndex = Math.min(completedQuestCount(), npc.lines.length - 1);
-  return { name: npc.name, line: npc.lines[lineIndex] };
+  const raw = npc.lines[lineIndex];
+  const pages = Array.isArray(raw) ? raw : paginateDialogue(raw);
+  return { name: npc.name, portrait: npc.portrait || null, line: pages.join(' '), pages };
+}
+
+// Split a passage into Chrono Trigger-style pages (roughly one sentence each,
+// merging very short fragments forward) so conversations advance page by page
+// instead of dumping all at once.
+function paginateDialogue(text) {
+  const sentences = String(text).match(/[^.!?]+[.!?]+["')\]]?\s*/g);
+  if (!sentences || sentences.length <= 1) return [String(text).trim()];
+  const pages = [];
+  sentences.forEach(raw => {
+    const sentence = raw.trim();
+    // Fold very short fragments ("Oh!", "Rest.") into the previous page.
+    if (sentence.length < 22 && pages.length) {
+      pages[pages.length - 1] += ` ${sentence}`;
+    } else {
+      pages.push(sentence);
+    }
+  });
+  return pages;
 }
 
 export function partyAttack(targetId) {

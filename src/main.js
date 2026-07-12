@@ -258,6 +258,8 @@ function isTownInteractKey(event) {
   return event.code === 'Space' || key === ' ' || key === 'Space' || key === 'Spacebar' || key.toLowerCase() === 'e';
 }
 
+const TYPEWRITER_CPS = 55; // characters revealed per second
+
 function createTownDialogueOverlay() {
   townDialogue.root = document.createElement('section');
   townDialogue.root.className = 'town-dialogue-overlay';
@@ -272,32 +274,106 @@ function createTownDialogueOverlay() {
       <strong></strong>
       <p></p>
     </div>
-    <button type="button">Close</button>
+    <span class="town-dialogue-advance" aria-hidden="true">Space &#9662;</span>
   `;
   townDialogue.avatar = townDialogue.root.querySelector('img');
   townDialogue.name = townDialogue.root.querySelector('strong');
   townDialogue.line = townDialogue.root.querySelector('p');
-  townDialogue.root.querySelector('button').addEventListener('click', () => {
-    closeTownDialogue();
-  });
+  townDialogue.advanceHint = townDialogue.root.querySelector('.town-dialogue-advance');
+  townDialogue.root.addEventListener('click', () => advanceTownDialogue());
+  townDialogue.pages = [];
+  townDialogue.pageIndex = 0;
+  townDialogue.fullText = '';
+  townDialogue.shownChars = 0;
+  townDialogue.typing = false;
+  townDialogue.timer = null;
+  townDialogue.npcKey = null;
   document.body.appendChild(townDialogue.root);
+  // Test hook for tooling.
+  if (typeof window !== 'undefined') {
+    window.__VITALIS_DIALOGUE__ = townDialogue;
+    window.__advanceDialogue__ = advanceTownDialogue;
+  }
 }
 
 function syncTownDialogueOverlay(mode) {
   if (!townDialogue.root) return;
   const isNpcPanel = mode === 'town' && townPanelMode.startsWith('npc:');
   if (!isNpcPanel) {
-    townDialogue.root.hidden = true;
+    hideTownDialogue();
     return;
   }
-  const npc = getNpcDialogue(townPanelMode.split(':')[1]);
+  const npcKey = townPanelMode.split(':')[1];
+  const npc = getNpcDialogue(npcKey);
   if (!npc) {
-    townDialogue.root.hidden = true;
+    hideTownDialogue();
     return;
   }
-  townDialogue.name.textContent = npc.name;
-  townDialogue.line.textContent = npc.line;
   townDialogue.root.hidden = false;
+  townDialogue.name.textContent = npc.name;
+  townDialogue.avatar.src = npc.portrait || ASSETS.villagerIdle;
+  // Only (re)start the conversation when the NPC actually changes, so a HUD
+  // re-render mid-conversation doesn't reset the typewriter.
+  if (townDialogue.npcKey !== npcKey) {
+    townDialogue.npcKey = npcKey;
+    townDialogue.pages = npc.pages.length ? npc.pages : [npc.line];
+    townDialogue.pageIndex = 0;
+    beginTypewriterPage();
+  }
+}
+
+function beginTypewriterPage() {
+  clearTypewriter();
+  townDialogue.fullText = townDialogue.pages[townDialogue.pageIndex] || '';
+  townDialogue.shownChars = 0;
+  townDialogue.typing = true;
+  townDialogue.line.textContent = '';
+  townDialogue.advanceHint.classList.remove('ready');
+  const stepMs = 1000 / TYPEWRITER_CPS;
+  townDialogue.timer = setInterval(() => {
+    townDialogue.shownChars += 1;
+    townDialogue.line.textContent = townDialogue.fullText.slice(0, townDialogue.shownChars);
+    if (townDialogue.shownChars >= townDialogue.fullText.length) finishTypewriterPage();
+  }, stepMs);
+}
+
+function finishTypewriterPage() {
+  clearTypewriter();
+  townDialogue.shownChars = townDialogue.fullText.length;
+  townDialogue.line.textContent = townDialogue.fullText;
+  townDialogue.typing = false;
+  const lastPage = townDialogue.pageIndex >= townDialogue.pages.length - 1;
+  townDialogue.advanceHint.textContent = lastPage ? 'Space ▾' : 'Space ▸';
+  townDialogue.advanceHint.classList.add('ready');
+}
+
+function clearTypewriter() {
+  if (townDialogue.timer) {
+    clearInterval(townDialogue.timer);
+    townDialogue.timer = null;
+  }
+}
+
+function advanceTownDialogue() {
+  if (townDialogue.root?.hidden) return false;
+  if (townDialogue.typing) {
+    finishTypewriterPage();
+    return true;
+  }
+  if (townDialogue.pageIndex < townDialogue.pages.length - 1) {
+    townDialogue.pageIndex += 1;
+    beginTypewriterPage();
+    return true;
+  }
+  closeTownDialogue();
+  return true;
+}
+
+function hideTownDialogue() {
+  clearTypewriter();
+  townDialogue.root.hidden = true;
+  townDialogue.typing = false;
+  townDialogue.npcKey = null;
 }
 
 class BootScene extends Phaser.Scene {
@@ -1178,7 +1254,8 @@ function updateTownInteractions(scene) {
   if (isNpcDialogueOpen() && !isCurrentNpcTarget(scene.activeInteractable)) {
     closeTownDialogue();
   }
-  if (!nearest) {
+  // Hide the world-space prompt while a conversation box is open.
+  if (!nearest || (isNpcDialogueOpen() && !townDialogue.root?.hidden)) {
     scene.interactPrompt.setVisible(false);
     return;
   }
@@ -1212,13 +1289,16 @@ function resolveTownInteractable(scene) {
 }
 
 function activateTownInteractable(scene) {
-  const target = resolveTownInteractable(scene);
-  if (isNpcDialogueOpen()) {
+  // While a conversation is open, the interact key pages through it
+  // (finishing the current line, advancing, then closing on the last page).
+  if (isNpcDialogueOpen() && !townDialogue.root?.hidden) {
+    const target = resolveTownInteractable(scene);
     if (!target || target.panel === townPanelMode) {
-      closeTownDialogue();
+      advanceTownDialogue();
       return;
     }
   }
+  const target = resolveTownInteractable(scene);
   if (!target || gameState.scene !== 'town') return;
   if (target.action) {
     target.action();

@@ -192,6 +192,33 @@ select {
   background: rgba(243, 198, 95, 0.14);
 }
 
+.town-dialogue-overlay {
+  cursor: pointer;
+}
+
+.town-dialogue-advance {
+  align-self: end;
+  justify-self: end;
+  padding: 3px 8px;
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.town-dialogue-advance.ready {
+  opacity: 0.9;
+  animation: dialogueBlink 1s steps(2, jump-none) infinite;
+}
+
+@keyframes dialogueBlink {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.35; }
+}
+
 #hud {
   display: flex;
   flex-direction: column;
