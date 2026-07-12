@@ -649,6 +649,7 @@ function pickIntentType(enemyType, rollValue) {
   if (enemyType === 'orc') return rollValue > 0.7 ? 'guard' : rollValue > 0.36 ? 'heavy' : 'attack';
   if (enemyType === 'troll') return rollValue > 0.74 ? 'guard' : 'heavy';
   if (enemyType === 'cave_lizard') return rollValue > 0.62 ? 'quick' : 'attack';
+  if (enemyType === 'bog_wraith') return rollValue > 0.55 ? 'heavy' : 'attack';
   return rollValue > 0.82 ? 'guard' : rollValue > 0.56 ? 'heavy' : 'attack';
 }
 

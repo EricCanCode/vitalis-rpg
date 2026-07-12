@@ -3,6 +3,8 @@ export const ASSETS = {
   ruins: 'assets/intro/ruins.png',
   battleForest: 'assets/environment/battle_forest.png',
   battleCave: 'assets/environment/battle_cave.png',
+  battleFen: 'assets/environment/battle_fen.png',
+  bogWraithIdle: 'assets/sprites/bog_wraith_idle.png',
   heroKael: 'assets/sprites/hero_kael.png',
   heroMira: 'assets/sprites/hero_mira.png',
   heroRowan: 'assets/sprites/hero_rowan.png',
@@ -111,6 +113,15 @@ export const AREA_THEMES = {
     ground: 0x101926,
     accent: 0x69a7ff,
     note: 'Cold echoes. Cave beasts strike fast around trolls.'
+  },
+  blackroot_fen: {
+    battleKey: 'battleFen',
+    battleAlpha: 0.92,
+    tint: 0x18241a,
+    tintAlpha: 0.3,
+    ground: 0x0e1510,
+    accent: 0xb8d8c8,
+    note: 'Still water. Wraiths drift in silence, then strike hard.'
   }
 };
 
@@ -118,7 +129,8 @@ export const ENEMY_TYPES = {
   goblin: { texture: 'goblinIdle', scale: 0.86 },
   orc: { texture: 'orcIdle', scale: 0.94 },
   troll: { texture: 'trollIdle', scale: 1.02 },
-  cave_lizard: { texture: 'caveLizardIdle', scale: 0.86 }
+  cave_lizard: { texture: 'caveLizardIdle', scale: 0.86 },
+  bog_wraith: { texture: 'bogWraithIdle', scale: 0.95 }
 };
 
 export const BESTIARY = {
@@ -149,6 +161,13 @@ export const BESTIARY = {
     trait: 'Lower health than a troll, but quick enough to punish delays.',
     advice: 'Remove it early so the troll cannot control the pace of the battle.',
     intent: 'Uses attacks and Quick Bite.'
+  },
+  bog_wraith: {
+    name: 'Bog Wraith',
+    family: 'Hollow',
+    trait: 'A drowned echo of something that once lived. It drifts without hurry and hits without mercy.',
+    advice: 'Wraiths favor heavy blows. Shield Prayer and guarding blunt their rhythm; magic finds them easily.',
+    intent: 'Drifts quietly, then commits to heavy attacks.'
   }
 };
 
@@ -168,6 +187,10 @@ export const LOOT_TABLES = {
   cave_lizard: [
     { itemId: 'ether', chance: 0.28, quantity: 1 },
     { itemId: 'potion', chance: 0.2, quantity: 1 }
+  ],
+  bog_wraith: [
+    { itemId: 'ether', chance: 0.34, quantity: 1 },
+    { itemId: 'fire_bomb', chance: 0.16, quantity: 1 }
   ]
 };
 
@@ -249,6 +272,11 @@ export const STORY_EVENTS = [
     id: 'claim-crystal',
     title: 'The First Shard',
     body: 'The cave quiets around a single warm shard. It is not enough to heal the world, but it proves the light can still answer.'
+  },
+  {
+    id: 'still-the-fen',
+    title: 'The Fen Falls Quiet',
+    body: 'The wraiths sink back beneath the black water, and for the first time in years the fen holds its breath. Whatever drowned here is not gone - but it is listening. Chapter Two begins.'
   }
 ];
 
@@ -258,7 +286,9 @@ export const NPC_DIALOGUE = {
     lines: [
       'Roads tell the truth before people do. If the path is quiet, the village can breathe.',
       'Those ruins were sealed before I was born. Take supplies, and do not trust still water.',
-      'Crystal light draws hungry things. If you bring back a shard, bring back everyone too.'
+      'Crystal light draws hungry things. If you bring back a shard, bring back everyone too.',
+      'The fen swallowed a village once. What walks there now remembers drowning. Step lightly.',
+      'You stilled the fen. I will not pretend the map ends there - but tonight, it is enough.'
     ]
   },
   innkeeper: {
@@ -266,7 +296,9 @@ export const NPC_DIALOGUE = {
     lines: [
       'A full room and a hot meal can keep fear from becoming a habit.',
       'The old stories say Vitalis responds to mercy as much as courage.',
-      'Rest when you need to. Brave parties still lose when they mistake exhaustion for duty.'
+      'Rest when you need to. Brave parties still lose when they mistake exhaustion for duty.',
+      'Travelers used to sing about the fen. Now they only lower their voices. Come back warm.',
+      'The whole village sleeps easier now. Whatever comes next, your beds here stay paid for.'
     ]
   }
 };
@@ -447,6 +479,40 @@ export const AREAS = [
         ]
       }
     ]
+  },
+  {
+    id: 'blackroot_fen',
+    name: 'Blackroot Fen',
+    subtitle: 'A drowned wood where the water refuses to move.',
+    recommendedLevel: 4,
+    fieldEvent: {
+      title: 'Where the Water Listens',
+      body: 'Dead trees lean out of black water. Every ripple settles too quickly, as if the fen is holding still on purpose.',
+      scout: 'Wraiths drift between the roots. They strike heavier than anything on the road.',
+      cacheItemId: 'ether'
+    },
+    unlocksAt: 3,
+    questId: 'still-the-fen',
+    encounters: [
+      {
+        id: 'drowned_crossing',
+        name: 'Drowned Crossing',
+        backdrop: 'black water',
+        enemies: [
+          { id: 'wraith_1', name: 'Bog Wraith', type: 'bog_wraith', hp: 42, maxHp: 42, atk: 11, def: 3, xp: 40, gold: 26 },
+          { id: 'wraith_2', name: 'Bog Wraith', type: 'bog_wraith', hp: 42, maxHp: 42, atk: 11, def: 3, xp: 40, gold: 26 }
+        ]
+      },
+      {
+        id: 'rootbound_hollow',
+        name: 'Rootbound Hollow',
+        backdrop: 'black water',
+        enemies: [
+          { id: 'wraith_3', name: 'Bog Wraith', type: 'bog_wraith', hp: 46, maxHp: 46, atk: 12, def: 3, xp: 44, gold: 30 },
+          { id: 'troll_fen', name: 'Moss Troll', type: 'troll', hp: 70, maxHp: 70, atk: 12, def: 6, xp: 62, gold: 46 }
+        ]
+      }
+    ]
   }
 ];
 
@@ -473,6 +539,14 @@ export const QUESTS = [
     areaId: 'crystal_cave',
     description: 'Win 2 battles in the Crystal Cave.',
     requiredWins: 2,
-    reward: 'Completes this chapter'
+    reward: 'Closes Chapter One and opens the Blackroot Fen'
+  },
+  {
+    id: 'still-the-fen',
+    title: 'Still the Blackroot Fen',
+    areaId: 'blackroot_fen',
+    description: 'Win 2 battles in the Blackroot Fen.',
+    requiredWins: 2,
+    reward: 'Begins Chapter Two'
   }
 ];

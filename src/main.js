@@ -83,7 +83,8 @@ const TOWN_NPCS = [
 const TOWN_MAP_MARKERS = [
   ['forest_road', 0.35, 0.31],
   ['old_ruins', 0.62, 0.35],
-  ['crystal_cave', 0.78, 0.64]
+  ['crystal_cave', 0.78, 0.64],
+  ['blackroot_fen', 0.25, 0.78]
 ];
 const TOWN_COLLISION_CONFIG = {
   playableArea: {
@@ -203,6 +204,7 @@ class BootScene extends Phaser.Scene {
     this.load.image('ruins', ASSETS.ruins);
     this.load.image('battleForest', ASSETS.battleForest);
     this.load.image('battleCave', ASSETS.battleCave);
+    this.load.image('battleFen', ASSETS.battleFen);
     this.load.image('heroKael', ASSETS.heroKael);
     this.load.image('heroMira', ASSETS.heroMira);
     this.load.image('heroRowan', ASSETS.heroRowan);
@@ -212,7 +214,7 @@ class BootScene extends Phaser.Scene {
     this.load.image('heroRowanBattle', ASSETS.heroRowanBattle);
     this.load.image('heroNyxBattle', ASSETS.heroNyxBattle);
     this.load.image('villagerIdle', ASSETS.villagerIdle);
-    ['goblinIdle', 'orcIdle', 'trollIdle', 'caveLizardIdle'].forEach(key => {
+    ['goblinIdle', 'orcIdle', 'trollIdle', 'caveLizardIdle', 'bogWraithIdle'].forEach(key => {
       this.load.spritesheet(key, ASSETS[key], {
         frameWidth: ENEMY_IDLE_FORMAT.frameWidth,
         frameHeight: ENEMY_IDLE_FORMAT.frameHeight
@@ -659,7 +661,7 @@ function createCharacterAnimations(scene) {
 }
 
 function createEnemyIdleAnimations(scene) {
-  ['goblinIdle', 'orcIdle', 'trollIdle', 'caveLizardIdle'].forEach(key => {
+  ['goblinIdle', 'orcIdle', 'trollIdle', 'caveLizardIdle', 'bogWraithIdle'].forEach(key => {
     if (!scene.textures.exists(key)) return;
     scene.anims.create({
       key: `${key}_breathe`,

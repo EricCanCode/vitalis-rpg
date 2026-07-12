@@ -1675,3 +1675,8 @@ h1 {
   font-size: 12px;
   color: var(--muted, #cfc7b3);
 }
+
+/* Ensure the hidden attribute always wins over component display rules */
+[hidden] {
+  display: none !important;
+}

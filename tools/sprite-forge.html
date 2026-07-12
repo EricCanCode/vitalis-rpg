@@ -379,6 +379,43 @@ function drawEnemy(ctx, type, frame) {
     ctx.beginPath(); ctx.arc(cx - 4, hy - 1, 2, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(cx + 4, hy - 1, 2, 0, Math.PI * 2); ctx.fill();
     rim(ctx, () => rr(ctx, cx - 30, bodyY - 16, 60, 60 + b, 20), RIM_SOFT);
+  } else if (type === 'bog_wraith') {
+    const lift = frame === 1 ? 3 : 0; // hover instead of breath
+    const bodyTop = 34 - lift, bodyBottom = 104 - lift;
+    // trailing wisps below the hem
+    ctx.fillStyle = 'rgba(122, 142, 128, 0.35)';
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.ellipse(cx - 14 + i * 14, bodyBottom + 6 + (i % 2) * 4, 6, 12 + (i % 2) * 4, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // tattered robe body (teardrop)
+    const robe = vgrad(ctx, bodyTop, bodyBottom, [[0, '#8ba092'], [0.45, '#64786c'], [1, '#2c362f']]);
+    paint(ctx, () => {
+      ctx.beginPath();
+      ctx.moveTo(cx, bodyTop);
+      ctx.bezierCurveTo(cx + 30, bodyTop + 16, cx + 24, bodyBottom - 18, cx + 16, bodyBottom);
+      ctx.lineTo(cx + 6, bodyBottom - 8);
+      ctx.lineTo(cx - 4, bodyBottom + 2);
+      ctx.lineTo(cx - 12, bodyBottom - 10);
+      ctx.lineTo(cx - 18, bodyBottom - 2);
+      ctx.bezierCurveTo(cx - 26, bodyBottom - 22, cx - 30, bodyTop + 18, cx, bodyTop);
+      ctx.closePath();
+    }, robe);
+    // thin arms
+    ctx.strokeStyle = '#4d5c52'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx - 20, bodyTop + 34); ctx.lineTo(cx - 34, bodyTop + 48 + lift); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + 20, bodyTop + 34); ctx.lineTo(cx + 34, bodyTop + 44 + lift); ctx.stroke();
+    // hollow cowl
+    paint(ctx, () => { ctx.beginPath(); ctx.arc(cx, bodyTop + 16, 15, 0, Math.PI * 2); }, '#101410', { lw: 1.8 });
+    // pale eyes with soft glow
+    ctx.save();
+    ctx.shadowColor = '#b8d8c8'; ctx.shadowBlur = 7;
+    ctx.fillStyle = '#c9e4d4';
+    ctx.beginPath(); ctx.arc(cx - 5, bodyTop + 15, 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + 5, bodyTop + 15, 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    rim(ctx, () => { ctx.beginPath(); ctx.arc(cx, bodyTop + 16, 15, 0, Math.PI * 2); }, RIM_SOFT);
   } else if (type === 'cave_lizard') {
     const bodyY = base - 20 - b * 0.6;
     // tail
@@ -637,6 +674,63 @@ function drawCaveBackdrop(ctx) {
   });
 }
 
+function drawFenBackdrop(ctx) {
+  const W = 1280, H = 720;
+  ctx.fillStyle = vgrad(ctx, 0, H, [[0, '#141d15'], [0.55, '#0d140e'], [1, '#070b08']]);
+  ctx.fillRect(0, 0, W, H);
+  // sickly moon haze
+  const mg = ctx.createRadialGradient(W * 0.3, H * 0.16, 10, W * 0.3, H * 0.16, 220);
+  mg.addColorStop(0, 'rgba(198, 226, 188, 0.10)');
+  mg.addColorStop(1, 'rgba(198, 226, 188, 0)');
+  ctx.fillStyle = mg;
+  ctx.fillRect(0, 0, W, H);
+  // twisted tree silhouettes
+  ctx.strokeStyle = '#0a0f0a';
+  ctx.lineCap = 'round';
+  [[0.1, 1.4], [0.26, 1.0], [0.58, 1.2], [0.78, 1.5], [0.93, 0.9]].forEach(([fx, sc]) => {
+    const bx = W * fx, by = H * 0.62;
+    ctx.lineWidth = 16 * sc;
+    ctx.beginPath(); ctx.moveTo(bx, by + 60 * sc); ctx.quadraticCurveTo(bx - 10 * sc, by - 60 * sc, bx + 14 * sc, by - 130 * sc); ctx.stroke();
+    ctx.lineWidth = 7 * sc;
+    ctx.beginPath(); ctx.moveTo(bx + 4 * sc, by - 70 * sc); ctx.quadraticCurveTo(bx + 44 * sc, by - 96 * sc, bx + 64 * sc, by - 82 * sc); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx - 2 * sc, by - 40 * sc); ctx.quadraticCurveTo(bx - 40 * sc, by - 66 * sc, bx - 56 * sc, by - 46 * sc); ctx.stroke();
+    // hanging moss
+    ctx.lineWidth = 2.4;
+    ctx.strokeStyle = 'rgba(88, 112, 84, 0.5)';
+    for (let m = 0; m < 4; m++) {
+      const mx = bx + (m - 1.5) * 20 * sc;
+      ctx.beginPath(); ctx.moveTo(mx, by - 86 * sc); ctx.lineTo(mx + 3, by - 86 * sc + 26 * sc); ctx.stroke();
+    }
+    ctx.strokeStyle = '#0a0f0a';
+  });
+  // still water band with pale reflections
+  ctx.fillStyle = vgrad(ctx, H * 0.68, H, [[0, '#101a14'], [1, '#0a120d']]);
+  ctx.fillRect(0, H * 0.68, W, H * 0.32);
+  ctx.fillStyle = 'rgba(178, 210, 182, 0.06)';
+  for (let i = 0; i < 9; i++) {
+    const rx = (i * 157 + 40) % W;
+    ctx.fillRect(rx, H * (0.72 + (i % 3) * 0.07), 90 + (i % 4) * 40, 2);
+  }
+  // mist
+  const mist = ctx.createLinearGradient(0, H * 0.56, 0, H * 0.74);
+  mist.addColorStop(0, 'rgba(198, 218, 198, 0)');
+  mist.addColorStop(0.5, 'rgba(198, 218, 198, 0.08)');
+  mist.addColorStop(1, 'rgba(198, 218, 198, 0)');
+  ctx.fillStyle = mist;
+  ctx.fillRect(0, H * 0.56, W, H * 0.18);
+  // wraith-lights
+  ctx.fillStyle = 'rgba(184, 216, 200, 0.65)';
+  [[0.2, 0.6], [0.44, 0.52], [0.66, 0.6], [0.84, 0.55], [0.55, 0.7]].forEach(([fx, fy]) => {
+    const lg = ctx.createRadialGradient(W * fx, H * fy, 1, W * fx, H * fy, 26);
+    lg.addColorStop(0, 'rgba(184, 216, 200, 0.5)');
+    lg.addColorStop(1, 'rgba(184, 216, 200, 0)');
+    ctx.fillStyle = lg;
+    ctx.fillRect(W * fx - 26, H * fy - 26, 52, 52);
+    ctx.fillStyle = 'rgba(210, 236, 220, 0.8)';
+    ctx.beginPath(); ctx.arc(W * fx, H * fy, 1.8, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
 // ---------- assembly ----------
 function forgeWalkSheet(id) {
   const c = makeCanvas(256, 256, `${id}_walk (4x4 @64)`);
@@ -714,10 +808,11 @@ Object.keys(HEROES).forEach(id => {
   forgeBattle(id);
   forgePortrait(id);
 });
-['goblin', 'orc', 'troll', 'cave_lizard'].forEach(forgeEnemy);
+['goblin', 'orc', 'troll', 'cave_lizard', 'bog_wraith'].forEach(forgeEnemy);
 forgeVillager();
 forgeBackdrop('battle_forest', drawForestBackdrop);
 forgeBackdrop('battle_cave', drawCaveBackdrop);
+forgeBackdrop('battle_fen', drawFenBackdrop);
 document.title = 'Forge done: ' + Object.keys(FORGE).length + ' assets';
 </script>
 </body>
