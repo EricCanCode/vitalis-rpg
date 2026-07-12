@@ -98,6 +98,30 @@ const TOWN_NPCS = [
 const TOWN_DOORS = [
   { id: 'inn', label: 'Enter Inn', x: 0.765, y: 0.54, spawn: 'innDoor' }
 ];
+// Inspectable flavor objects (Phase B). `lines` returns the pages shown when
+// inspected; they render portrait-less like a Chrono Trigger sign box.
+const TOWN_FLAVOR = [
+  {
+    id: 'notice-board',
+    name: 'Notice Board',
+    x: 0.10,
+    y: 0.60,
+    radius: 96,
+    lines: () => noticeBoardLines()
+  },
+  {
+    id: 'signpost',
+    name: 'Signpost',
+    x: 0.30,
+    y: 0.40,
+    radius: 84,
+    lines: () => [
+      'North: the Forest Road. Beyond it, the Old Ruins, the Crystal Cave, and the Blackroot Fen.',
+      'Travelers are advised not to wander the wilds after dark.'
+    ]
+  }
+];
+const TOWN_SAVE_POINT = { name: 'Save Point', x: 0.5, y: 0.5, radius: 92 };
 const VILLAGE_SPAWNS = {
   default: { x: 0.43, y: 0.61, facing: 'down' },
   innDoor: { x: 0.765, y: 0.56, facing: 'down' }
@@ -353,7 +377,8 @@ function openConversation({ pages, source, npcKey = null, onComplete = null }) {
 function startStoryDialogue(entries, onComplete = null) {
   const pages = [];
   entries.forEach(entry => {
-    const portrait = entry.portrait || ASSETS.villagerIdle;
+    // A null portrait renders a portrait-less box (signs, narration).
+    const portrait = 'portrait' in entry ? entry.portrait : ASSETS.villagerIdle;
     paginateStoryText(entry.text).forEach(text => pages.push({ name: entry.name || '', portrait, text }));
   });
   if (!pages.length) {
@@ -390,7 +415,9 @@ function beginTypewriterPage() {
   clearTypewriter();
   const page = townDialogue.pages[townDialogue.pageIndex] || { name: '', portrait: ASSETS.villagerIdle, text: '' };
   townDialogue.name.textContent = page.name || '';
-  townDialogue.avatar.src = page.portrait || ASSETS.villagerIdle;
+  const hasPortrait = Boolean(page.portrait);
+  townDialogue.root.classList.toggle('no-portrait', !hasPortrait);
+  if (hasPortrait) townDialogue.avatar.src = page.portrait;
   townDialogue.fullText = page.text || '';
   townDialogue.shownChars = 0;
   townDialogue.typing = true;
@@ -506,11 +533,23 @@ class TownScene extends Phaser.Scene {
     addAtmosphere(this);
     this.add.rectangle(this.scale.width * 0.5, this.scale.height * 0.58, this.scale.width * 0.58, this.scale.height * 0.42, 0xf0d689, 0.08);
     addTownParty(this);
-    TOWN_NPCS.forEach(npc => {
-      addToken(this, this.scale.width * npc.x, this.scale.height * npc.y, npc.tint, npc.name, 'villagerIdle', 0.72);
+    this.townNpcViews = TOWN_NPCS.map((npc, index) => {
+      const view = addToken(this, this.scale.width * npc.x, this.scale.height * npc.y, npc.tint, npc.name, 'villagerIdle', 0.72);
+      // A slow idle bob so the village reads as alive, not frozen.
+      this.tweens.add({
+        targets: view,
+        y: view.y - 4,
+        duration: 1500 + index * 170,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+      return view;
     });
     addMapMarkers(this);
     addTownDoorMarkers(this);
+    addTownSavePoint(this);
+    addTownFlavorMarkers(this);
     setupTownInteractables(this);
     this.cursors = this.input.keyboard.createCursorKeys();
     this.wasd = this.input.keyboard.addKeys('W,A,S,D');
@@ -1285,6 +1324,28 @@ function setupTownInteractables(scene) {
       locked: !isAreaUnlocked(areaId)
     });
   });
+  TOWN_FLAVOR.forEach(flavor => {
+    scene.townInteractables.push({
+      x: scene.scale.width * flavor.x,
+      y: scene.scale.height * flavor.y,
+      label: `Read ${flavor.name}`,
+      radius: flavor.radius || TOWN_INTERACT_RADIUS,
+      locked: false,
+      action: () => startStoryDialogue(flavor.lines().map(text => ({ name: flavor.name, portrait: null, text })))
+    });
+  });
+  scene.townInteractables.push({
+    x: scene.scale.width * TOWN_SAVE_POINT.x,
+    y: scene.scale.height * TOWN_SAVE_POINT.y,
+    label: 'Save',
+    radius: TOWN_SAVE_POINT.radius,
+    locked: false,
+    action: () => {
+      saveGame();
+      pushLog('The party records its journey at the save crystal.');
+      startStoryDialogue([{ name: 'Save Crystal', portrait: null, text: 'The crystal hums as it records your journey. Your progress is saved.' }]);
+    }
+  });
   scene.activeInteractable = null;
   scene.interactPrompt = scene.add.text(0, 0, '', {
     fontFamily: 'Arial, sans-serif',
@@ -1631,6 +1692,62 @@ function addTownDoorMarkers(scene) {
       strokeThickness: 4
     }).setOrigin(0.5);
   });
+}
+
+function addTownSavePoint(scene) {
+  const x = scene.scale.width * TOWN_SAVE_POINT.x;
+  const y = scene.scale.height * TOWN_SAVE_POINT.y;
+  scene.add.ellipse(x, y + 8, 34, 12, 0x1a130a, 0.35).setDepth(1);
+  const glow = scene.add.circle(x, y - 4, 24, 0xffe08a, 0.2).setDepth(1);
+  const gem = scene.add.rectangle(x, y - 10, 15, 15, 0xffe9b0, 0.92)
+    .setAngle(45)
+    .setStrokeStyle(2, 0xfff6de, 0.9)
+    .setDepth(2);
+  scene.tweens.add({ targets: glow, scale: 1.4, alpha: 0.42, duration: 950, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+  scene.tweens.add({ targets: gem, y: y - 16, angle: 135, duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+  scene.add.text(x, y + 20, 'Save', {
+    fontFamily: 'Arial, sans-serif',
+    fontSize: '12px',
+    fontStyle: 'bold',
+    color: '#fff3cc',
+    stroke: '#111',
+    strokeThickness: 4
+  }).setOrigin(0.5).setDepth(2);
+}
+
+function addTownFlavorMarkers(scene) {
+  TOWN_FLAVOR.forEach((flavor, index) => {
+    const x = scene.scale.width * flavor.x;
+    const y = scene.scale.height * flavor.y;
+    const dot = scene.add.rectangle(x, y - 30, 9, 9, 0xf0e6c0, 0.85)
+      .setAngle(45)
+      .setStrokeStyle(1.5, 0x6b5a2e, 0.9)
+      .setDepth(3);
+    scene.tweens.add({
+      targets: dot,
+      y: y - 36,
+      duration: 1100 + index * 130,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+  });
+}
+
+function noticeBoardLines() {
+  const cleared = QUESTS.filter(quest => getQuestProgress(quest.id).complete).length;
+  const nextQuest = QUESTS.find(quest => !getQuestProgress(quest.id).complete);
+  const lines = [
+    'VILLAGE NOTICES. Keep to the lit paths after dusk.',
+    'Report anything hollow to the Quartermaster at once.'
+  ];
+  if (nextQuest) {
+    const area = AREAS.find(entry => entry.id === nextQuest.areaId);
+    lines.push(`Standing bounty: clear the ${area ? area.name : 'road ahead'}. ${cleared} of ${QUESTS.length} objectives met.`);
+  } else {
+    lines.push('All standing bounties are met. The village breathes easier tonight.');
+  }
+  return lines;
 }
 
 function drawWorldMap(scene) {

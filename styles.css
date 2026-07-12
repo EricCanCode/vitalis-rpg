@@ -196,6 +196,14 @@ select {
   cursor: pointer;
 }
 
+.town-dialogue-overlay.no-portrait {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.town-dialogue-overlay.no-portrait .town-dialogue-avatar {
+  display: none;
+}
+
 .town-dialogue-advance {
   align-self: end;
   justify-self: end;
