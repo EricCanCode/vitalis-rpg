@@ -132,6 +132,18 @@ test('checkAchievements unlocks chronicler only once every bestiary entry is dis
   assert.ok(state.gameState.achievements.includes('chronicler'));
 });
 
+test('markEndingSeen and markFenEndingSeen are independent flags, not a shared one', () => {
+  assert.equal(state.gameState.endingSeen, false);
+  assert.equal(state.gameState.fenEndingSeen, false);
+
+  state.markEndingSeen();
+  assert.equal(state.gameState.endingSeen, true);
+  assert.equal(state.gameState.fenEndingSeen, false, 'the Chapter One ending must not also mark the Blackroot Fen ending as seen');
+
+  state.markFenEndingSeen();
+  assert.equal(state.gameState.fenEndingSeen, true);
+});
+
 test('drainAchievementToasts returns newly-earned achievements once, then empties', () => {
   state.gameState.gold = 400;
   state.checkAchievements();

@@ -18,6 +18,7 @@ export function createGameState() {
     storyEvents: ['prologue'],
     titleSeen: false,
     endingSeen: false,
+    fenEndingSeen: false,
     achievements: [],
     log: ['The party gathers in the village. The road beyond is restless.']
   };
@@ -148,6 +149,11 @@ export function markTitleSeen() {
 
 export function markEndingSeen() {
   gameState.endingSeen = true;
+  saveGame();
+}
+
+export function markFenEndingSeen() {
+  gameState.fenEndingSeen = true;
   saveGame();
 }
 

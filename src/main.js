@@ -1,4 +1,4 @@
-import { AREAS, AREA_THEMES, ASSETS, CHARACTER_BATTLE_SHEETS, CHARACTER_SPRITESHEET_FORMAT, CHARACTER_WALK_SHEETS, ENDING_SCENES, ENEMY_IDLE_FORMAT, ENEMY_TYPES, ITEMS, QUESTS, SPELLS, WEAPONS } from './data.js';
+import { AREAS, AREA_THEMES, ASSETS, CHARACTER_BATTLE_SHEETS, CHARACTER_SPRITESHEET_FORMAT, CHARACTER_WALK_SHEETS, ENDING_SCENES, ENEMY_IDLE_FORMAT, ENEMY_TYPES, FEN_ENDING_SCENES, ITEMS, QUESTS, SPELLS, WEAPONS } from './data.js';
 import {
   buyItem,
   buyPotion,
@@ -21,6 +21,7 @@ import {
   guard,
   isAreaUnlocked,
   markEndingSeen,
+  markFenEndingSeen,
   partyAttack,
   pushLog,
   resetGame,
@@ -3178,6 +3179,16 @@ function addVictoryChoices(area, progress) {
       townPanelMode = 'map';
       menuOpen = false;
       circularWipeToScene(currentScene, 'IntroScene', { data: { beats: ENDING_SCENES, next: 'TownScene' } });
+    }, 'primary');
+  }
+  if (progress?.complete && area?.questId === 'still-the-fen' && !gameState.fenEndingSeen) {
+    addVictoryButton('Still the Fen', () => {
+      hideVictoryOverlay();
+      returnToTown();
+      markFenEndingSeen();
+      townPanelMode = 'map';
+      menuOpen = false;
+      circularWipeToScene(currentScene, 'IntroScene', { data: { beats: FEN_ENDING_SCENES, next: 'TownScene' } });
     }, 'primary');
   }
   if (area && !shouldRecommendRest() && !progress?.complete) {

@@ -335,6 +335,40 @@ export const ENDING_SCENES = [
   }
 ];
 
+// Plays from a victory-screen choice once still-the-fen is complete, mirroring
+// ENDING_SCENES' wiring. Deliberately does not resolve the Blight or promise
+// a built Chapter Two -- Blackroot Fen is the edge of what's currently
+// playable, so this closes the loop honestly (a real hook, not a cliffhanger
+// dressed up as a finished arc) rather than overselling unbuilt content.
+export const FEN_ENDING_SCENES = [
+  {
+    type: 'fadeText',
+    text: ['The black water goes still.', 'For the first time in years, the fen holds its breath.'],
+    duration: 4200
+  },
+  {
+    type: 'fadeText',
+    text: ['Nothing surfaces. Nothing answers.', 'Whatever slept beneath Blackroot did not die here.', 'It only opened its eyes.'],
+    duration: 5600
+  },
+  {
+    type: 'imageSlide',
+    imageKey: 'battleFen',
+    text: ['The party makes camp at the tree line, and does not speak of what they saw in the dark.'],
+    duration: 5200
+  },
+  {
+    type: 'lightPulse',
+    text: ['Vitalis still answers.', 'But now, something answers back.'],
+    duration: 4400
+  },
+  {
+    type: 'title',
+    text: ['VITALIS', 'To be continued...'],
+    duration: 4500
+  }
+];
+
 export const STORY_EVENTS = [
   {
     id: 'prologue',
