@@ -2,7 +2,12 @@
   "name": "vitalis-rpg",
   "private": true,
   "type": "module",
+  "main": "electron/main.js",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^44.4.5"
   }
 }
