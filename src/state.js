@@ -1,7 +1,7 @@
 import { ABILITY_UNLOCKS, ACHIEVEMENTS, AREAS, BESTIARY, ITEMS, LOOT_TABLES, NPC_DIALOGUE, PARTY_TEMPLATE, QUESTS, SPELLS, STORY_EVENTS, WEAPONS } from './data.js';
 import { getDifficulty } from './settings.js';
 
-const SAVE_KEY = 'vitalis-rpg-v2-save';
+export const SAVE_KEY = 'vitalis-rpg-v2-save';
 
 export function createGameState() {
   return {
