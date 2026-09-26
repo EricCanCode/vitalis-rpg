@@ -152,13 +152,13 @@ export const SPELLS = {
   flame_wave: { id: 'flame_wave', name: 'Flame Wave', mp: 8, power: 8, target: 'allEnemies', stat: 'mag' },
   spark: { id: 'spark', name: 'Spark', mp: 3, power: 7, target: 'enemy', stat: 'mag' },
   quick_strike: { id: 'quick_strike', name: 'Quick Strike', mp: 4, power: 6, target: 'enemy', stat: 'atk' },
-  mend: { id: 'mend', name: 'Mend', mp: 5, power: 12, target: 'ally', stat: 'mag' },
+  mend: { id: 'mend', name: 'Mend', mp: 7, power: 12, target: 'ally', stat: 'mag' },
   shield_prayer: { id: 'shield_prayer', name: 'Shield Prayer', mp: 7, power: 6, target: 'partyShield', stat: 'mag' },
   rally: { id: 'rally', name: 'Rally', mp: 4, power: 6, target: 'party', stat: 'atk' },
   guard_break: { id: 'guard_break', name: 'Guard Break', mp: 5, power: 8, target: 'enemy', stat: 'atk' },
   cleave: { id: 'cleave', name: 'Cleave', mp: 6, power: 5, target: 'allEnemies', stat: 'atk' },
   inferno: { id: 'inferno', name: 'Inferno', mp: 11, power: 13, target: 'allEnemies', stat: 'mag' },
-  renewal: { id: 'renewal', name: 'Renewal', mp: 10, power: 22, target: 'ally', stat: 'mag' },
+  renewal: { id: 'renewal', name: 'Renewal', mp: 14, power: 22, target: 'ally', stat: 'mag' },
   shadowstep: { id: 'shadowstep', name: 'Shadowstep', mp: 7, power: 13, target: 'enemy', stat: 'atk' }
 };
 
@@ -583,7 +583,8 @@ export const AREAS = [
         name: 'Bridge Troll',
         backdrop: 'stone bridge',
         enemies: [
-          { id: 'troll_1', name: 'Moss Troll', type: 'troll', hp: 56, maxHp: 56, atk: 13, def: 5, xp: 48, gold: 35 }
+          { id: 'troll_1', name: 'Moss Troll', type: 'troll', hp: 56, maxHp: 56, atk: 13, def: 5, xp: 48, gold: 35 },
+          { id: 'lizard_1', name: 'Cave Lizard', type: 'cave_lizard', hp: 30, maxHp: 30, atk: 10, def: 3, xp: 22, gold: 14 }
         ]
       },
       {
@@ -592,7 +593,8 @@ export const AREAS = [
         backdrop: 'stone bridge',
         enemies: [
           { id: 'troll_2', name: 'Moss Troll', type: 'troll', hp: 64, maxHp: 64, atk: 14, def: 6, xp: 58, gold: 42 },
-          { id: 'lizard_1', name: 'Cave Lizard', type: 'cave_lizard', hp: 30, maxHp: 30, atk: 10, def: 3, xp: 22, gold: 14 }
+          { id: 'lizard_1', name: 'Cave Lizard', type: 'cave_lizard', hp: 30, maxHp: 30, atk: 10, def: 3, xp: 22, gold: 14 },
+          { id: 'lizard_2', name: 'Cave Lizard', type: 'cave_lizard', hp: 30, maxHp: 30, atk: 10, def: 3, xp: 22, gold: 14 }
         ]
       }
     ]
@@ -617,7 +619,8 @@ export const AREAS = [
         backdrop: 'black water',
         enemies: [
           { id: 'wraith_1', name: 'Bog Wraith', type: 'bog_wraith', hp: 42, maxHp: 42, atk: 14, def: 3, xp: 40, gold: 26 },
-          { id: 'wraith_2', name: 'Bog Wraith', type: 'bog_wraith', hp: 42, maxHp: 42, atk: 14, def: 3, xp: 40, gold: 26 }
+          { id: 'wraith_2', name: 'Bog Wraith', type: 'bog_wraith', hp: 42, maxHp: 42, atk: 14, def: 3, xp: 40, gold: 26 },
+          { id: 'wraith_2b', name: 'Bog Wraith', type: 'bog_wraith', hp: 42, maxHp: 42, atk: 14, def: 3, xp: 40, gold: 26 }
         ]
       },
       {
@@ -626,6 +629,7 @@ export const AREAS = [
         backdrop: 'black water',
         enemies: [
           { id: 'wraith_3', name: 'Bog Wraith', type: 'bog_wraith', hp: 46, maxHp: 46, atk: 16, def: 3, xp: 44, gold: 30 },
+          { id: 'wraith_3b', name: 'Bog Wraith', type: 'bog_wraith', hp: 46, maxHp: 46, atk: 16, def: 3, xp: 44, gold: 30 },
           { id: 'troll_fen', name: 'Moss Troll', type: 'troll', hp: 70, maxHp: 70, atk: 16, def: 6, xp: 62, gold: 46 }
         ]
       }
