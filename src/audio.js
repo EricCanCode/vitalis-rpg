@@ -57,7 +57,7 @@ const RECIPES = {
   achievement: { wave: 'sine', from: 587, to: 880, duration: 0.3, volume: 0.24 }
 };
 
-const MUSIC_THEMES = {
+export const MUSIC_THEMES = {
   town: { wave: 'triangle', notes: [262, 330, 392, 330], tempo: 0.42, gap: 4.8, volume: 0.055 },
   inn: { wave: 'sine', notes: [330, 392, 440, 392, 330], tempo: 0.5, gap: 5.4, volume: 0.05 },
   world: { wave: 'triangle', notes: [220, 294, 349, 440, 392], tempo: 0.38, gap: 5.2, volume: 0.052 },
@@ -107,19 +107,54 @@ function startThemePhrase(themeId) {
   playThemePhrase({ id: themeId, ...theme });
 }
 
+// Turns one theme's bare melody line into a small three-voice phrase: the
+// melody as written, a sustained octave-down bass drone under the whole
+// phrase, and a soft fifth-above harmony note on the downbeat. Kept as a
+// pure function (no AudioContext) so the actual note/timing math is
+// unit-testable without a browser -- see tests/audio-theme.test.js.
+export function buildPhraseEvents(theme) {
+  const melodyDuration = theme.tempo * 0.82;
+  const phraseLength = theme.notes.length * theme.tempo;
+  const root = theme.notes[0];
+
+  const events = theme.notes.map((frequency, index) => ({
+    voice: 'melody',
+    wave: theme.wave,
+    from: frequency,
+    to: frequency,
+    duration: melodyDuration,
+    volume: theme.volume,
+    at: index * theme.tempo
+  }));
+
+  events.push({
+    voice: 'bass',
+    wave: 'sine',
+    from: root / 2,
+    to: root / 2,
+    duration: phraseLength,
+    volume: theme.volume * 0.55,
+    at: 0
+  });
+
+  events.push({
+    voice: 'harmony',
+    wave: 'sine',
+    from: root * 1.5,
+    to: root * 1.5,
+    duration: melodyDuration,
+    volume: theme.volume * 0.45,
+    at: 0
+  });
+
+  return events;
+}
+
 function playThemePhrase(theme) {
   if (!enabled || !theme || activeTheme !== theme.id) return;
   const ctx = getContext();
   if (!ctx) return;
-  theme.notes.forEach((frequency, index) => {
-    playTone(ctx, {
-      wave: theme.wave,
-      from: frequency,
-      to: frequency,
-      duration: theme.tempo * 0.82,
-      volume: theme.volume
-    }, index * theme.tempo);
-  });
+  buildPhraseEvents(theme).forEach(event => playTone(ctx, event, event.at));
   musicTimer = window.setTimeout(() => playThemePhrase(theme), (theme.notes.length * theme.tempo + theme.gap) * 1000);
 }
 
