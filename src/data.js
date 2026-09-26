@@ -515,8 +515,8 @@ export const AREAS = [
         name: 'Roadside Ambush',
         backdrop: 'forest road',
         enemies: [
-          { id: 'goblin_1', name: 'Hollow Goblin', type: 'goblin', hp: 22, maxHp: 22, atk: 5, def: 2, xp: 10, gold: 8 },
-          { id: 'goblin_2', name: 'Hollow Goblin', type: 'goblin', hp: 22, maxHp: 22, atk: 5, def: 2, xp: 10, gold: 8 }
+          { id: 'goblin_1', name: 'Hollow Goblin', type: 'goblin', hp: 22, maxHp: 22, atk: 7, def: 2, xp: 10, gold: 8 },
+          { id: 'goblin_2', name: 'Hollow Goblin', type: 'goblin', hp: 22, maxHp: 22, atk: 7, def: 2, xp: 10, gold: 8 }
         ]
       },
       {
@@ -524,8 +524,8 @@ export const AREAS = [
         name: 'Broken Watchfire',
         backdrop: 'forest road',
         enemies: [
-          { id: 'goblin_3', name: 'Hollow Goblin', type: 'goblin', hp: 24, maxHp: 24, atk: 6, def: 2, xp: 12, gold: 10 },
-          { id: 'orc_scout', name: 'Orc Scout', type: 'orc', hp: 32, maxHp: 32, atk: 7, def: 3, xp: 18, gold: 14 }
+          { id: 'goblin_3', name: 'Hollow Goblin', type: 'goblin', hp: 24, maxHp: 24, atk: 8, def: 2, xp: 12, gold: 10 },
+          { id: 'orc_scout', name: 'Orc Scout', type: 'orc', hp: 32, maxHp: 32, atk: 9, def: 3, xp: 18, gold: 14 }
         ]
       }
     ]
@@ -549,8 +549,8 @@ export const AREAS = [
         name: 'Orc Patrol',
         backdrop: 'old road',
         enemies: [
-          { id: 'orc_1', name: 'Orc Bruiser', type: 'orc', hp: 36, maxHp: 36, atk: 7, def: 4, xp: 22, gold: 18 },
-          { id: 'goblin_4', name: 'Hollow Goblin', type: 'goblin', hp: 22, maxHp: 22, atk: 5, def: 2, xp: 10, gold: 8 }
+          { id: 'orc_1', name: 'Orc Bruiser', type: 'orc', hp: 36, maxHp: 36, atk: 9, def: 4, xp: 22, gold: 18 },
+          { id: 'goblin_4', name: 'Hollow Goblin', type: 'goblin', hp: 22, maxHp: 22, atk: 7, def: 2, xp: 10, gold: 8 }
         ]
       },
       {
@@ -558,8 +558,8 @@ export const AREAS = [
         name: 'Ruin Guard',
         backdrop: 'old road',
         enemies: [
-          { id: 'orc_2', name: 'Orc Bruiser', type: 'orc', hp: 39, maxHp: 39, atk: 8, def: 4, xp: 24, gold: 20 },
-          { id: 'orc_3', name: 'Orc Bruiser', type: 'orc', hp: 39, maxHp: 39, atk: 8, def: 4, xp: 24, gold: 20 }
+          { id: 'orc_2', name: 'Orc Bruiser', type: 'orc', hp: 39, maxHp: 39, atk: 10, def: 4, xp: 24, gold: 20 },
+          { id: 'orc_3', name: 'Orc Bruiser', type: 'orc', hp: 39, maxHp: 39, atk: 10, def: 4, xp: 24, gold: 20 }
         ]
       }
     ]
@@ -583,7 +583,7 @@ export const AREAS = [
         name: 'Bridge Troll',
         backdrop: 'stone bridge',
         enemies: [
-          { id: 'troll_1', name: 'Moss Troll', type: 'troll', hp: 56, maxHp: 56, atk: 10, def: 5, xp: 48, gold: 35 }
+          { id: 'troll_1', name: 'Moss Troll', type: 'troll', hp: 56, maxHp: 56, atk: 13, def: 5, xp: 48, gold: 35 }
         ]
       },
       {
@@ -591,8 +591,8 @@ export const AREAS = [
         name: 'Crystal Hoarder',
         backdrop: 'stone bridge',
         enemies: [
-          { id: 'troll_2', name: 'Moss Troll', type: 'troll', hp: 64, maxHp: 64, atk: 11, def: 6, xp: 58, gold: 42 },
-          { id: 'lizard_1', name: 'Cave Lizard', type: 'cave_lizard', hp: 30, maxHp: 30, atk: 8, def: 3, xp: 22, gold: 14 }
+          { id: 'troll_2', name: 'Moss Troll', type: 'troll', hp: 64, maxHp: 64, atk: 14, def: 6, xp: 58, gold: 42 },
+          { id: 'lizard_1', name: 'Cave Lizard', type: 'cave_lizard', hp: 30, maxHp: 30, atk: 10, def: 3, xp: 22, gold: 14 }
         ]
       }
     ]
@@ -616,8 +616,8 @@ export const AREAS = [
         name: 'Drowned Crossing',
         backdrop: 'black water',
         enemies: [
-          { id: 'wraith_1', name: 'Bog Wraith', type: 'bog_wraith', hp: 42, maxHp: 42, atk: 11, def: 3, xp: 40, gold: 26 },
-          { id: 'wraith_2', name: 'Bog Wraith', type: 'bog_wraith', hp: 42, maxHp: 42, atk: 11, def: 3, xp: 40, gold: 26 }
+          { id: 'wraith_1', name: 'Bog Wraith', type: 'bog_wraith', hp: 42, maxHp: 42, atk: 14, def: 3, xp: 40, gold: 26 },
+          { id: 'wraith_2', name: 'Bog Wraith', type: 'bog_wraith', hp: 42, maxHp: 42, atk: 14, def: 3, xp: 40, gold: 26 }
         ]
       },
       {
@@ -625,8 +625,8 @@ export const AREAS = [
         name: 'Rootbound Hollow',
         backdrop: 'black water',
         enemies: [
-          { id: 'wraith_3', name: 'Bog Wraith', type: 'bog_wraith', hp: 46, maxHp: 46, atk: 12, def: 3, xp: 44, gold: 30 },
-          { id: 'troll_fen', name: 'Moss Troll', type: 'troll', hp: 70, maxHp: 70, atk: 12, def: 6, xp: 62, gold: 46 }
+          { id: 'wraith_3', name: 'Bog Wraith', type: 'bog_wraith', hp: 46, maxHp: 46, atk: 16, def: 3, xp: 44, gold: 30 },
+          { id: 'troll_fen', name: 'Moss Troll', type: 'troll', hp: 70, maxHp: 70, atk: 16, def: 6, xp: 62, gold: 46 }
         ]
       }
     ]
