@@ -846,7 +846,6 @@ function addXp(member, amount) {
     member.stats.mag += member.role === 'Pyromancer' || member.role === 'Warden' ? 2 : 1;
     member.stats.def += 1;
     member.hp = member.maxHp;
-    member.mp = member.maxMp;
     pushLog(`${member.name} reaches level ${member.level}.`);
     const unlocked = applyAbilityUnlocks(member);
     unlocked.forEach(spell => pushLog(`${member.name} learns ${spell.name}.`));

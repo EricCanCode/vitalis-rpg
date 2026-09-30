@@ -187,16 +187,18 @@ test('endBattleVictory grants gold/xp, advances area progress, and completes the
   assert.ok(state.gameState.storyEvents.includes(quest.id), 'completing the quest should unlock its story event');
 });
 
-test('a big enough xp grant levels up, fully restores hp/mp, and unlocks the level-2 ability', () => {
+test('a big enough xp grant levels up, fully restores hp but not mp, and unlocks the level-2 ability', () => {
   const battle = enterForestRoad();
   const kael = state.gameState.party[0];
-  kael.hp = 1; // prove leveling fully heals, not just adds hp
+  kael.hp = 1; // prove leveling fully heals hp, not just adds hp
+  kael.mp = 1; // prove leveling does NOT restore mp, only hp
 
   battle.enemies.forEach(enemy => { enemy.hp = 0; enemy.xp = 100; }); // force at least one level-up
   act(() => state.endBattleVictory());
 
   assert.ok(kael.level >= 2);
   assert.equal(kael.hp, kael.maxHp, 'leveling up should fully heal, not leave the character wounded');
+  assert.equal(kael.mp, 1, 'leveling up should not refill mp -- that stays a town-economy cost');
   assert.ok(kael.spells.includes('cleave'), 'the level-2 unlock should fire the moment that level is reached');
 });
 
