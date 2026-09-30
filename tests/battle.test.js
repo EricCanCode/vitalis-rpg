@@ -199,3 +199,102 @@ test('a big enough xp grant levels up, fully restores hp/mp, and unlocks the lev
   assert.equal(kael.hp, kael.maxHp, 'leveling up should fully heal, not leave the character wounded');
   assert.ok(kael.spells.includes('cleave'), 'the level-2 unlock should fire the moment that level is reached');
 });
+
+// Status effects (poison, silence, the party-wide defense debuff) are the
+// mechanism that actually defeats "reactive single-target healing" -- see
+// RESEARCH_LOG-style reasoning in the design discussion. These tests force a
+// specific enemy intent the same way the "enemies retaliate" test above
+// does, then drive the round forward with guard()/partyAttack() to observe
+// the real enemiesAct()/tickStatuses() resolution, not a reimplementation.
+
+test('a poison intent bites for reduced damage and applies a status that ticks for flat damage each following round', () => {
+  const battle = enterForestRoad();
+  const kael = state.gameState.party[0];
+  const enemy = battle.enemies[0];
+  battle.intents[enemy.id] = { type: 'poison', targetId: kael.id, label: 'Venom Bite' };
+
+  const hpBeforeBite = kael.hp;
+  act(() => {
+    state.guard(); // kael
+    state.guard(); // mira
+    state.guard(); // rowan
+    state.guard(); // nyx -- triggers the enemy phase, where the forced poison bite resolves
+  });
+  const bittenRoll = Math.floor(0.5 * 5) + 1; // roll(1, 5) with Math.random fixed at 0.5
+  // kael guards herself as the round's first action (same 4x-guard pattern
+  // as above), so the bite also gets guard()'s -4 damage reduction.
+  const expectedBite = Math.max(1, Math.round(enemy.atk * 0.6 - kael.stats.def + bittenRoll - 4));
+  assert.equal(kael.hp, hpBeforeBite - expectedBite, 'the bite itself deals reduced (0.6x) direct damage');
+  assert.equal(state.gameState.battle.statuses[kael.id].poisonTurns, 3);
+
+  // Round 2: nothing re-forces this enemy's intent, so it reverts to a plain
+  // 'attack' (goblin's pickIntentType at roll 0.5) aimed elsewhere by the
+  // same fixed random draw -- kael's only expected damage this round is the
+  // poison tick, resolved once for the whole party when the round turns over.
+  const hpBeforeTick = kael.hp;
+  act(() => {
+    state.guard(); state.guard(); state.guard(); state.guard();
+  });
+  assert.equal(kael.hp, hpBeforeTick - 6, 'poison ticks for a flat 6 damage per round, independent of any roll');
+  assert.equal(state.gameState.battle.statuses[kael.id].poisonTurns, 2, 'poison counts down by one per round');
+});
+
+test('silence blocks castSpell outright -- no MP spent, no turn consumed -- and wears off after its duration', () => {
+  const battle = enterForestRoad();
+  const rowan = state.gameState.party[2]; // the party's only healer (mend, renewal)
+  const enemy = battle.enemies[0];
+  battle.intents[enemy.id] = { type: 'silence', targetId: rowan.id, label: 'Mind Drain' };
+
+  act(() => {
+    state.guard(); state.guard(); state.guard(); state.guard(); // round 1 -> silence lands going into round 2
+  });
+  assert.equal(state.gameState.battle.statuses[rowan.id].silenceTurns, 3);
+
+  act(() => {
+    state.guard(); // kael's round-2 turn
+    state.guard(); // mira's round-2 turn
+  });
+  assert.equal(state.gameState.battle.actorIndex, 2, 'it should now be the silenced healer\'s turn');
+
+  rowan.hp = 5; // wounded, so an unblocked mend would visibly change this
+  const mpBefore = rowan.mp;
+  act(() => state.castSpell('mend', rowan.id));
+  assert.equal(rowan.hp, 5, 'a silenced caster cannot cast -- HP is unchanged');
+  assert.equal(rowan.mp, mpBefore, 'MP is not spent on a blocked cast');
+  assert.equal(state.gameState.battle.actorIndex, 2, 'a blocked cast must not consume the turn');
+
+  act(() => {
+    state.guard(); // rowan actually takes her turn this time
+    state.guard(); // nyx -- completes round 2, ticking silenceTurns down
+  });
+  assert.equal(state.gameState.battle.statuses[rowan.id].silenceTurns, 2, 'silence counts down by one per round like poison');
+});
+
+test("a roar cracks the party's defense: the debuff applies, decays over three rounds, and raises damage taken while active", () => {
+  const battle = enterForestRoad();
+  const kael = state.gameState.party[0];
+  const enemy = battle.enemies[0];
+  battle.intents[enemy.id] = { type: 'roar', targetId: kael.id, label: 'Roar' };
+
+  act(() => {
+    state.guard(); state.guard(); state.guard(); state.guard();
+  });
+  assert.deepEqual(state.gameState.battle.partyDefDebuff, { amount: 3, turns: 3 });
+
+  // Round 2: force the same enemy into a plain attack on kael, who attacks
+  // back instead of guarding -- guarding would mask the debuff behind its
+  // own -4 damage reduction, confounding the comparison.
+  kael.hp = kael.maxHp;
+  battle.intents[enemy.id] = { type: 'attack', targetId: kael.id, label: 'Attack' };
+  const hpBefore = kael.hp;
+  act(() => {
+    state.partyAttack(enemy.id); // kael
+    state.guard(); // mira
+    state.guard(); // rowan
+    state.guard(); // nyx -- triggers the enemy phase
+  });
+  const hitRoll = Math.floor(0.5 * 5) + 1;
+  const expectedDamage = Math.max(1, Math.round(enemy.atk - Math.max(0, kael.stats.def - 3) + hitRoll));
+  assert.equal(kael.hp, hpBefore - expectedDamage, 'the debuff should shave 3 off effective defense for this hit');
+  assert.equal(state.gameState.battle.partyDefDebuff.turns, 2, 'the debuff counts down by one per round');
+});

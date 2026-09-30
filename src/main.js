@@ -20,6 +20,7 @@ import {
   getWeapon,
   guard,
   isAreaUnlocked,
+  isSilenced,
   markEndingSeen,
   markFenEndingSeen,
   partyAttack,
@@ -821,7 +822,9 @@ function addBattleStatus(scene) {
 
     const intent = battle.intents?.[enemy.id];
     if (intent) {
-      const intentColor = intent.type === 'heavy' ? '#ffb35c' : intent.type === 'guard' ? '#9bd8ff' : '#fff3cc';
+      const intentColor = intent.type === 'heavy' ? '#ffb35c' : intent.type === 'guard' ? '#9bd8ff'
+        : intent.type === 'poison' ? '#8fd67a' : intent.type === 'silence' ? '#c9a6f5' : intent.type === 'roar' ? '#ef6f6c'
+        : '#fff3cc';
       const target = gameState.party.find(member => member.id === intent.targetId);
       const targetIndex = gameState.party.findIndex(member => member.id === intent.targetId);
       const targetView = scene.partyViews[targetIndex];
@@ -840,8 +843,10 @@ function addBattleStatus(scene) {
 }
 
 function addIntentLine(scene, enemyView, targetView, intent) {
-  if (intent.type === 'guard') return;
-  const color = intent.type === 'heavy' ? 0xffb35c : intent.type === 'quick' ? 0x9bd8ff : 0xfff3cc;
+  if (intent.type === 'guard' || intent.type === 'roar') return;
+  const color = intent.type === 'heavy' ? 0xffb35c : intent.type === 'quick' ? 0x9bd8ff
+    : intent.type === 'poison' ? 0x8fd67a : intent.type === 'silence' ? 0xc9a6f5
+    : 0xfff3cc;
   const line = scene.add.line(0, 0, enemyView.x, enemyView.y - 48, targetView.x, targetView.y - 48, color, 0.22)
     .setOrigin(0)
     .setLineWidth(intent.type === 'heavy' ? 3 : 2);
@@ -2283,6 +2288,7 @@ function renderParty() {
         <div class="party-card-meta">
           ${renderProgressMini(member)}
           ${renderPartyThreat(threat)}
+          ${renderStatusBadges(member)}
         </div>
       </article>
     `;
@@ -2957,7 +2963,8 @@ function renderBattlePanel() {
       currentScene.scene.restart();
     }, actionClass(`${livingEnemies.length === 1 ? 'wide ' : ''}${enemyActionClass(enemy)}`, recommendation, actionKey), describeAttack(actor, enemy, enemyLabel));
   });
-  addActionGroupLabel('Magic');
+  const silenced = isSilenced(actor);
+  addActionGroupLabel(silenced ? 'Magic (Silenced)' : 'Magic');
   actor.spells.forEach(spellId => {
     const spell = SPELLS[spellId];
     if (spell.target === 'enemy') {
@@ -2968,7 +2975,8 @@ function renderBattlePanel() {
           castSpell(spell.id, enemy.id);
           currentScene.scene.restart();
         }, actionClass(enemyActionClass(enemy), recommendation, actionKey), describeSpell(actor, spell, enemy, enemyLabel));
-        button.disabled = actor.mp < spell.mp;
+        button.disabled = actor.mp < spell.mp || silenced;
+        if (silenced) button.title = `${actor.name} is silenced and cannot cast spells.`;
       });
       return;
     }
@@ -2978,7 +2986,8 @@ function renderBattlePanel() {
         castSpell(spell.id);
         currentScene.scene.restart();
       }, actionClass('wide', recommendation, actionKey), describeSpell(actor, spell));
-      button.disabled = actor.mp < spell.mp;
+      button.disabled = actor.mp < spell.mp || silenced;
+      if (silenced) button.title = `${actor.name} is silenced and cannot cast spells.`;
       return;
     }
     if (spell.target === 'ally') {
@@ -2988,8 +2997,9 @@ function renderBattlePanel() {
           castSpell(spell.id, ally.id);
           currentScene.scene.restart();
         }, actionClass(allyActionClass(ally), recommendation, actionKey), describeSpell(actor, spell, ally));
-        button.disabled = actor.mp < spell.mp || ally.hp >= ally.maxHp;
-        if (ally.hp >= ally.maxHp) button.title = `${ally.name} is already at full HP.`;
+        button.disabled = actor.mp < spell.mp || ally.hp >= ally.maxHp || silenced;
+        if (silenced) button.title = `${actor.name} is silenced and cannot cast spells.`;
+        else if (ally.hp >= ally.maxHp) button.title = `${ally.name} is already at full HP.`;
       });
       return;
     }
@@ -2999,7 +3009,8 @@ function renderBattlePanel() {
       castSpell(spell.id, actor.id);
       currentScene.scene.restart();
     }, actionClass(spell.target === 'party' || spell.target === 'partyShield' ? 'wide support-action' : 'support-action', recommendation, actionKey), describeSpell(actor, spell));
-    button.disabled = actor.mp < spell.mp;
+    button.disabled = actor.mp < spell.mp || silenced;
+    if (silenced) button.title = `${actor.name} is silenced and cannot cast spells.`;
   });
   addActionGroupLabel('Defense');
   const guardKey = `guard:${actor.id}`;
@@ -3086,6 +3097,12 @@ function renderIncomingSummary() {
 function getTacticalTip(actor, livingEnemies) {
   const endangered = gameState.party.find(member => member.hp > 0 && member.hp / member.maxHp <= 0.35);
   if (endangered) return `${endangered.name} is in danger. Heal, guard, or finish an enemy before the next enemy turn.`;
+  const poisoned = gameState.party.find(member => member.hp > 0 && (gameState.battle?.statuses?.[member.id]?.poisonTurns || 0) > 0);
+  if (poisoned) return `${poisoned.name} is poisoned and losing HP each round. Healing tops them off, but the venom itself has to run its course.`;
+  const silenceIntent = Object.values(gameState.battle?.intents || {}).find(intent => intent.type === 'silence');
+  if (silenceIntent) return "Someone is about to be silenced. Cast the spells you need now, or keep a Potion in reserve.";
+  const roarIntent = Object.values(gameState.battle?.intents || {}).find(intent => intent.type === 'roar');
+  if (roarIntent) return "A roar is coming that will crack the party's defense. Expect heavier hits for a few rounds after.";
   const heavyIntent = Object.values(gameState.battle?.intents || {}).find(intent => intent.type === 'heavy');
   if (heavyIntent) return 'A heavy attack is coming. Guarding or reducing enemy count is valuable this turn.';
   if (actor.mp <= Math.max(3, Math.floor(actor.maxMp * 0.25))) return `${actor.name}'s MP is low. Consider an Ether or basic attacks.`;
@@ -3423,6 +3440,17 @@ function renderProgressMini(member) {
   return `<span class="progress-mini">${label}</span>`;
 }
 
+function renderStatusBadges(member) {
+  const battle = gameState.battle;
+  if (!battle || gameState.scene !== 'battle') return '';
+  const status = battle.statuses?.[member.id];
+  const badges = [];
+  if (status?.poisonTurns > 0) badges.push(`<span class="status-badge poison">Poisoned ${status.poisonTurns}</span>`);
+  if (status?.silenceTurns > 0) badges.push(`<span class="status-badge silence">Silenced ${status.silenceTurns}</span>`);
+  if (battle.partyDefDebuff?.turns > 0) badges.push(`<span class="status-badge roar">Guard Down ${battle.partyDefDebuff.turns}</span>`);
+  return badges.join('');
+}
+
 function renderPartyThreat(threat) {
   if (!threat.count) return '';
   const sourceText = threat.count === 1 ? threat.sources[0] : `${threat.count} enemies`;
@@ -3433,7 +3461,7 @@ function getIncomingThreat(memberId) {
   const battle = gameState.battle;
   if (!battle?.intents) return { count: 0, low: 0, high: 0, sources: [] };
   return Object.entries(battle.intents).reduce((summary, [enemyId, intent]) => {
-    if (intent.targetId !== memberId || intent.type === 'guard') return summary;
+    if (intent.targetId !== memberId || intent.type === 'guard' || intent.type === 'silence' || intent.type === 'roar') return summary;
     const enemy = battle.enemies.find(candidate => candidate.id === enemyId);
     const target = gameState.party.find(member => member.id === memberId);
     if (!enemy || !target || enemy.hp <= 0 || target.hp <= 0) return summary;
@@ -3454,10 +3482,12 @@ function getEnemyLabel(enemy, enemies = gameState.battle?.enemies || []) {
 }
 
 function estimateIntentDamage(enemy, intent, target) {
-  const multiplier = intent.type === 'heavy' ? 1.45 : intent.type === 'quick' ? 0.85 : 1;
+  const multiplier = intent.type === 'heavy' ? 1.45 : intent.type === 'quick' ? 0.85 : intent.type === 'poison' ? 0.6 : 1;
   const shield = gameState.battle?.shield || 0;
   const guarded = gameState.battle?.guarding?.[target.id] ? 4 : 0;
-  const base = enemy.atk * multiplier - target.stats.def - shield - guarded;
+  const defDebuff = gameState.battle?.partyDefDebuff?.turns > 0 ? gameState.battle.partyDefDebuff.amount : 0;
+  const effectiveDef = Math.max(0, target.stats.def - defDebuff);
+  const base = enemy.atk * multiplier - effectiveDef - shield - guarded;
   return {
     low: Math.max(1, Math.round(base + 1)),
     high: Math.max(1, Math.round(base + 5))

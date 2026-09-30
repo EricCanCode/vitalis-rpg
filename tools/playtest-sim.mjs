@@ -24,6 +24,7 @@ globalThis.localStorage = {
 
 import { AREAS, ITEMS, QUESTS, SPELLS } from '../src/data.js';
 import * as state from '../src/state.js';
+import { isSilenced } from '../src/state.js';
 
 const N = Number(process.argv[2] || 200);
 
@@ -36,10 +37,12 @@ function weakestLivingEnemy(enemies) {
 }
 
 function healSpellFor(actor) {
+  if (isSilenced(actor)) return null;
   return actor.spells.find(id => SPELLS[id]?.target === 'ally' && SPELLS[id].mp <= actor.mp);
 }
 
 function damageSpellFor(actor) {
+  if (isSilenced(actor)) return null;
   return actor.spells.find(id => SPELLS[id]?.target === 'enemy' && SPELLS[id].mp <= actor.mp);
 }
 

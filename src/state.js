@@ -122,6 +122,8 @@ function hydrateSave(save) {
     save.battle.intents = save.battle.intents || {};
     save.battle.lastFx = save.battle.lastFx || null;
     save.battle.shield = save.battle.shield || 0;
+    save.battle.statuses = save.battle.statuses || {};
+    save.battle.partyDefDebuff = save.battle.partyDefDebuff || { amount: 0, turns: 0 };
   }
   return { ...fresh, ...save };
 }
@@ -315,6 +317,8 @@ export function startEncounter(areaId = gameState.currentAreaId) {
     rally: 0,
     shield: 0,
     intents: {},
+    statuses: {},
+    partyDefDebuff: { amount: 0, turns: 0 },
     lastFx: null,
     won: false,
     lost: false
@@ -509,12 +513,20 @@ export function partyAttack(targetId) {
   afterPartyAction();
 }
 
+export function isSilenced(character) {
+  return (gameState.battle?.statuses?.[character?.id]?.silenceTurns || 0) > 0;
+}
+
 export function castSpell(spellId, targetId) {
   const battle = gameState.battle;
   const actor = gameState.party[battle.actorIndex];
   const spell = SPELLS[spellId];
   if (!actor || !spell || actor.mp < spell.mp) {
     pushLog('Not enough MP.');
+    return;
+  }
+  if (isSilenced(actor)) {
+    pushLog(`${actor.name} is silenced and cannot cast spells.`);
     return;
   }
   if (spell.target === 'ally') {
@@ -655,6 +667,11 @@ function afterPartyAction() {
   }
   if (nextIndex <= gameState.battle.actorIndex) {
     gameState.battle.turn = 'enemy';
+    // Resolve lingering effects from EARLIER rounds before this round's
+    // enemies act -- tickStatuses() must never touch a status enemiesAct()
+    // is about to apply below, or a freshly-landed effect would lose a turn
+    // of its duration before the player even saw it.
+    tickStatuses();
     enemiesAct();
     gameState.battle.turn = 'party';
     gameState.battle.guarding = {};
@@ -673,17 +690,37 @@ function enemiesAct() {
     const intent = battle.intents[enemy.id] || createEnemyIntent(enemy);
     const target = gameState.party.find(member => member.id === intent.targetId && member.hp > 0) || targets[Math.floor(Math.random() * targets.length)];
     const guarded = battle.guarding[target.id];
-    const multiplier = intent.type === 'heavy' ? 1.45 : intent.type === 'quick' ? 0.85 : intent.type === 'guard' ? 0 : 1;
     if (intent.type === 'guard') {
       enemy.def += 1;
       pushLog(`${enemy.name} braces for impact.`);
       return;
     }
+    if (intent.type === 'silence') {
+      const status = getOrCreateStatus(battle, target.id);
+      status.silenceTurns = 3;
+      setFx('silence', target.id, 0, 'Silenced', enemy.id);
+      pushLog(`${enemy.name} drains the words from ${target.name}'s lips. Spells are sealed.`);
+      return;
+    }
+    if (intent.type === 'roar') {
+      battle.partyDefDebuff = { amount: 3, turns: 3 };
+      setFx('roar', 'allParty', 2, 'Defense Down', enemy.id);
+      pushLog(`${enemy.name} roars. The party's guard cracks.`);
+      return;
+    }
+    const multiplier = intent.type === 'heavy' ? 1.45 : intent.type === 'quick' ? 0.85 : intent.type === 'poison' ? 0.6 : 1;
     const shield = battle.shield || 0;
-    const damage = Math.max(1, Math.round((enemy.atk * multiplier) - target.stats.def + roll(1, 5) - (guarded ? 4 : 0) - shield));
+    const defDebuff = battle.partyDefDebuff?.turns > 0 ? battle.partyDefDebuff.amount : 0;
+    const effectiveDef = Math.max(0, target.stats.def - defDebuff);
+    const damage = Math.max(1, Math.round((enemy.atk * multiplier) - effectiveDef + roll(1, 5) - (guarded ? 4 : 0) - shield));
     target.hp = Math.max(0, target.hp - damage);
-    setFx('enemyHit', target.id, damage, `-${damage}`, enemy.id);
+    setFx(intent.type === 'poison' ? 'poison' : 'enemyHit', target.id, damage, `-${damage}`, enemy.id);
     pushLog(`${enemy.name} ${enemyVerb(intent.type)} ${target.name} for ${damage}.`);
+    if (intent.type === 'poison') {
+      const status = getOrCreateStatus(battle, target.id);
+      status.poisonTurns = 3;
+      pushLog(`${target.name} is poisoned.`);
+    }
   });
   if (livingParty().length === 0) {
     battle.lost = true;
@@ -691,9 +728,49 @@ function enemiesAct() {
   }
 }
 
+function getOrCreateStatus(battle, memberId) {
+  if (!battle.statuses[memberId]) battle.statuses[memberId] = { poisonTurns: 0, silenceTurns: 0 };
+  return battle.statuses[memberId];
+}
+
+// Resolves lingering status effects once per round (poison DoT, silence and
+// the party-wide defense debuff counting down) -- called when control passes
+// back to the party, after the enemy phase and before new intents are drawn.
+function tickStatuses() {
+  const battle = gameState.battle;
+  if (!battle) return;
+  livingParty().forEach(member => {
+    const status = battle.statuses[member.id];
+    if (!status) return;
+    if (status.poisonTurns > 0) {
+      const damage = 6;
+      member.hp = Math.max(0, member.hp - damage);
+      setFx('poison', member.id, damage, `-${damage}`, member.id);
+      pushLog(`${member.name} suffers ${damage} poison damage.`);
+      status.poisonTurns -= 1;
+    }
+    if (status.silenceTurns > 0) {
+      status.silenceTurns -= 1;
+      if (status.silenceTurns === 0) pushLog(`${member.name} can cast spells again.`);
+    }
+  });
+  if (battle.partyDefDebuff?.turns > 0) {
+    battle.partyDefDebuff.turns -= 1;
+    if (battle.partyDefDebuff.turns === 0) {
+      battle.partyDefDebuff.amount = 0;
+      pushLog("The party's guard steadies again.");
+    }
+  }
+  if (livingParty().length === 0) {
+    battle.lost = true;
+    pushLog('The party falls to lingering wounds.');
+  }
+}
+
 function enemyVerb(intentType) {
   if (intentType === 'heavy') return 'crushes';
   if (intentType === 'quick') return 'snaps at';
+  if (intentType === 'poison') return 'bites';
   return 'hits';
 }
 
@@ -708,9 +785,9 @@ function chooseEnemyIntents() {
 
 function createEnemyIntent(enemy) {
   const targets = livingParty();
-  const target = targets[Math.floor(Math.random() * Math.max(1, targets.length))];
   const rollValue = Math.random();
   const type = pickIntentType(enemy.type, rollValue);
+  const target = type === 'silence' ? pickSilenceTarget(targets) : targets[Math.floor(Math.random() * Math.max(1, targets.length))];
   return {
     type,
     targetId: target?.id,
@@ -718,12 +795,21 @@ function createEnemyIntent(enemy) {
   };
 }
 
+// Wraiths hunt for whoever channels ally-target spells rather than picking a
+// random target -- a random silence almost never lands on the party's one
+// healer, which makes the whole mechanic toothless. Draining the healer
+// specifically is what actually breaks "reactive single-target healing".
+function pickSilenceTarget(targets) {
+  const healer = targets.find(member => member.spells.some(spellId => SPELLS[spellId]?.target === 'ally'));
+  return healer || targets[Math.floor(Math.random() * Math.max(1, targets.length))];
+}
+
 function pickIntentType(enemyType, rollValue) {
   if (enemyType === 'goblin') return rollValue > 0.68 ? 'heavy' : 'attack';
   if (enemyType === 'orc') return rollValue > 0.7 ? 'guard' : rollValue > 0.36 ? 'heavy' : 'attack';
-  if (enemyType === 'troll') return rollValue > 0.74 ? 'guard' : 'heavy';
-  if (enemyType === 'cave_lizard') return rollValue > 0.62 ? 'quick' : 'attack';
-  if (enemyType === 'bog_wraith') return rollValue > 0.55 ? 'heavy' : 'attack';
+  if (enemyType === 'troll') return rollValue > 0.85 ? 'roar' : rollValue > 0.68 ? 'guard' : 'heavy';
+  if (enemyType === 'cave_lizard') return rollValue > 0.78 ? 'poison' : rollValue > 0.58 ? 'quick' : 'attack';
+  if (enemyType === 'bog_wraith') return rollValue > 0.62 ? 'silence' : rollValue > 0.4 ? 'heavy' : 'attack';
   return rollValue > 0.82 ? 'guard' : rollValue > 0.56 ? 'heavy' : 'attack';
 }
 
@@ -731,6 +817,9 @@ function intentLabel(type) {
   if (type === 'guard') return 'Guard';
   if (type === 'heavy') return 'Heavy Attack';
   if (type === 'quick') return 'Quick Bite';
+  if (type === 'poison') return 'Venom Bite';
+  if (type === 'silence') return 'Mind Drain';
+  if (type === 'roar') return 'Roar';
   return 'Attack';
 }
 

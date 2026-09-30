@@ -417,7 +417,8 @@ h1 {
 }
 
 .progress-mini,
-.threat-chip {
+.threat-chip,
+.status-badge {
   display: inline-flex;
   align-items: center;
   min-height: 22px;
@@ -436,6 +437,21 @@ h1 {
 }
 
 .threat-chip.danger {
+  border-color: rgba(239, 111, 108, 0.42);
+  color: #ffb7b5;
+}
+
+.status-badge.poison {
+  border-color: rgba(102, 209, 123, 0.4);
+  color: #a6e8b4;
+}
+
+.status-badge.silence {
+  border-color: rgba(201, 166, 245, 0.4);
+  color: #ddc7fa;
+}
+
+.status-badge.roar {
   border-color: rgba(239, 111, 108, 0.42);
   color: #ffb7b5;
 }
@@ -503,6 +519,21 @@ h1 {
 .intent-chip.guard {
   border-color: rgba(155, 216, 255, 0.34);
   color: #bde7ff;
+}
+
+.intent-chip.poison {
+  border-color: rgba(102, 209, 123, 0.34);
+  color: #a6e8b4;
+}
+
+.intent-chip.silence {
+  border-color: rgba(201, 166, 245, 0.34);
+  color: #ddc7fa;
+}
+
+.intent-chip.roar {
+  border-color: rgba(239, 111, 108, 0.4);
+  color: #ffb7b5;
 }
 
 .incoming-summary {
@@ -1644,7 +1675,8 @@ h1 {
 }
 
 .progress-mini,
-.threat-chip {
+.threat-chip,
+.status-badge {
   min-height: 18px;
   padding: 2px 6px;
   font-size: 0.62rem;
