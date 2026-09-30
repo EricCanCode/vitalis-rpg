@@ -22,7 +22,7 @@ globalThis.localStorage = {
   clear: () => { store.clear(); }
 };
 
-import { AREAS, ITEMS, QUESTS, SPELLS } from '../src/data.js';
+import { AREAS, CAMP_COST, ITEMS, QUESTS, SPELLS } from '../src/data.js';
 import * as state from '../src/state.js';
 import { isSilenced } from '../src/state.js';
 
@@ -88,7 +88,7 @@ function townUpkeep() {
     if (!state.buyItem('potion')) break;
   }
   const avgHpPct = state.gameState.party.reduce((sum, m) => sum + m.hp / m.maxHp, 0) / state.gameState.party.length;
-  if (avgHpPct < 0.7 && state.gameState.gold >= 10) state.camp();
+  if (avgHpPct < 0.7 && state.gameState.gold >= CAMP_COST) state.camp();
 }
 
 function playOne() {
@@ -111,7 +111,7 @@ function playOne() {
       if (result.outcome === 'lost') {
         losses += 1;
         townUpkeep();
-        if (state.gameState.party.every(m => m.hp <= 0) && state.gameState.gold < 10) {
+        if (state.gameState.party.every(m => m.hp <= 0) && state.gameState.gold < CAMP_COST) {
           log.softlocked = true;
           return log;
         }
@@ -142,7 +142,7 @@ for (let i = 0; i < N; i += 1) results.push(playOne());
 console.log(`Simulated ${N} full playthroughs.\n`);
 
 const softlocks = results.filter(r => r.softlocked).length;
-console.log(`Soft-locks (party wiped, gold < 10, unrecoverable): ${softlocks}/${N}`);
+console.log(`Soft-locks (party wiped, gold < ${CAMP_COST}, unrecoverable): ${softlocks}/${N}`);
 
 AREAS.forEach(area => {
   const entries = results.map(r => r.areas[area.id]).filter(Boolean);

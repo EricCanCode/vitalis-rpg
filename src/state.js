@@ -1,4 +1,4 @@
-import { ABILITY_UNLOCKS, ACHIEVEMENTS, AREAS, BESTIARY, ITEMS, LOOT_TABLES, NPC_DIALOGUE, PARTY_TEMPLATE, QUESTS, SPELLS, STORY_EVENTS, WEAPONS } from './data.js';
+import { ABILITY_UNLOCKS, ACHIEVEMENTS, AREAS, BESTIARY, CAMP_COST, ITEMS, LOOT_TABLES, NPC_DIALOGUE, PARTY_TEMPLATE, QUESTS, SPELLS, STORY_EVENTS, WEAPONS } from './data.js';
 import { getDifficulty } from './settings.js';
 
 export const SAVE_KEY = 'vitalis-rpg-v2-save';
@@ -405,11 +405,11 @@ export function returnToTown() {
 }
 
 export function camp() {
-  if (gameState.gold < 10) {
-    pushLog('The innkeeper asks for 10 gold. You are short.');
+  if (gameState.gold < CAMP_COST) {
+    pushLog(`The innkeeper asks for ${CAMP_COST} gold. You are short.`);
     return false;
   }
-  gameState.gold -= 10;
+  gameState.gold -= CAMP_COST;
   gameState.party.forEach(member => {
     member.hp = member.maxHp;
     member.mp = member.maxMp;

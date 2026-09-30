@@ -140,6 +140,8 @@ export const WEAPONS = {
   guardian_mace: { id: 'guardian_mace', name: 'Guardian Mace', type: 'weapon', atk: 3, mag: 2, cost: 38 }
 };
 
+export const CAMP_COST = 35;
+
 export const ITEMS = {
   potion: { id: 'potion', name: 'Potion', kind: 'heal', amount: 22, cost: 12, target: 'ally', description: 'Restores 22 HP.' },
   ether: { id: 'ether', name: 'Ether', kind: 'mp', amount: 10, cost: 18, target: 'ally', description: 'Restores 10 MP.' },

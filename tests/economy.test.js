@@ -4,7 +4,7 @@
 import './support/setup.mjs';
 import assert from 'node:assert/strict';
 import { test, beforeEach } from 'node:test';
-import { BESTIARY, ITEMS, QUESTS, WEAPONS } from '../src/data.js';
+import { BESTIARY, CAMP_COST, ITEMS, QUESTS, WEAPONS } from '../src/data.js';
 import * as state from '../src/state.js';
 
 beforeEach(() => {
@@ -71,22 +71,22 @@ test('equipWeapon refuses an unaffordable weapon and leaves the current weapon e
   assert.equal(kael.weapon, 'iron_sword');
 });
 
-test('camp fully restores the party\'s HP and MP for a flat 10 gold', () => {
-  state.gameState.gold = 50;
+test('camp fully restores the party\'s HP and MP for a flat CAMP_COST gold', () => {
+  state.gameState.gold = CAMP_COST + 15;
   state.gameState.party[0].hp = 1;
   state.gameState.party[0].mp = 0;
   assert.ok(state.camp());
-  assert.equal(state.gameState.gold, 40);
+  assert.equal(state.gameState.gold, 15);
   assert.equal(state.gameState.party[0].hp, state.gameState.party[0].maxHp);
   assert.equal(state.gameState.party[0].mp, state.gameState.party[0].maxMp);
 });
 
 test('camp refuses when the party cannot afford the innkeeper, and does not heal', () => {
-  state.gameState.gold = 5;
+  state.gameState.gold = CAMP_COST - 1;
   state.gameState.party[0].hp = 1;
   assert.equal(state.camp(), false);
   assert.equal(state.gameState.party[0].hp, 1);
-  assert.equal(state.gameState.gold, 5);
+  assert.equal(state.gameState.gold, CAMP_COST - 1);
 });
 
 test('pushLog keeps only the 14 most recent entries, newest first', () => {

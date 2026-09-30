@@ -1,4 +1,4 @@
-import { AREAS, AREA_THEMES, ASSETS, CHARACTER_BATTLE_SHEETS, CHARACTER_SPRITESHEET_FORMAT, CHARACTER_WALK_SHEETS, ENDING_SCENES, ENEMY_IDLE_FORMAT, ENEMY_TYPES, FEN_ENDING_SCENES, ITEMS, QUESTS, SPELLS, WEAPONS } from './data.js';
+import { AREAS, AREA_THEMES, ASSETS, CAMP_COST, CHARACTER_BATTLE_SHEETS, CHARACTER_SPRITESHEET_FORMAT, CHARACTER_WALK_SHEETS, ENDING_SCENES, ENEMY_IDLE_FORMAT, ENEMY_TYPES, FEN_ENDING_SCENES, ITEMS, QUESTS, SPELLS, WEAPONS } from './data.js';
 import {
   buyItem,
   buyPotion,
@@ -2932,8 +2932,8 @@ function renderBattlePanel() {
   if (battle.lost) {
     hud.copy.innerHTML = '<strong>The party has fallen.</strong><br>Return to town. Resting will restore everyone for another attempt.';
     hud.actions.innerHTML = '';
-    if (gameState.gold >= 10) {
-      addButton('Return and Rest 10g', () => {
+    if (gameState.gold >= CAMP_COST) {
+      addButton(`Return and Rest ${CAMP_COST}g`, () => {
         returnToTown();
         camp();
         townPanelMode = 'map';
@@ -3220,8 +3220,8 @@ function addVictoryChoices(area, progress) {
       circularWipeToScene(currentScene, 'BattleScene');
     }, 'primary');
   }
-  if (shouldRecommendRest() && gameState.gold >= 10) {
-    addVictoryButton('Rest at Inn 10g', () => {
+  if (shouldRecommendRest() && gameState.gold >= CAMP_COST) {
+    addVictoryButton(`Rest at Inn ${CAMP_COST}g`, () => {
       hideVictoryOverlay();
       returnToTown();
       camp();
@@ -3401,7 +3401,7 @@ function estimateSpellDamage(actor, spell, enemy) {
 
 function addRestButton(className = '') {
   const fullyRecovered = gameState.party.every(member => member.hp === member.maxHp && member.mp === member.maxMp);
-  const button = addButton('Rest 10g', () => {
+  const button = addButton(`Rest ${CAMP_COST}g`, () => {
     const rested = camp();
     renderHud('town');
     // A short party moment at the inn fireside (Chrono Trigger-style beat).
@@ -3413,8 +3413,8 @@ function addRestButton(className = '') {
       ]);
     }
   }, className, fullyRecovered ? 'Party is already fully recovered.' : 'Restore all HP and MP.');
-  button.disabled = fullyRecovered || gameState.gold < 10;
-  button.title = fullyRecovered ? 'Party is already fully recovered.' : gameState.gold < 10 ? 'Need 10 gold to rest.' : 'Restore all HP and MP.';
+  button.disabled = fullyRecovered || gameState.gold < CAMP_COST;
+  button.title = fullyRecovered ? 'Party is already fully recovered.' : gameState.gold < CAMP_COST ? `Need ${CAMP_COST} gold to rest.` : 'Restore all HP and MP.';
   return button;
 }
 
