@@ -3,6 +3,18 @@ import { getDifficulty } from './settings.js';
 
 export const SAVE_KEY = 'vitalis-rpg-v2-save';
 
+// Each party level above an area's recommendedLevel toughens its enemies by
+// this much (never scales down for being underleveled -- that's what the
+// Safe/Ready/Danger readiness advice is already for). Keeps encounters
+// matched to the party's actual pace instead of a fixed per-area table, so
+// grinding extra wins for XP doesn't just make the rest of the area trivial.
+const LEVEL_SCALE_PER_LEVEL = 0.12;
+
+function getLevelScale(area) {
+  const overLevel = Math.max(0, averagePartyLevel() - area.recommendedLevel);
+  return 1 + overLevel * LEVEL_SCALE_PER_LEVEL;
+}
+
 export function createGameState() {
   return {
     scene: 'town',
@@ -298,7 +310,7 @@ export function startEncounter(areaId = gameState.currentAreaId) {
   const area = AREAS.find(entry => entry.id === gameState.currentAreaId) || AREAS[0];
   const progress = gameState.areaProgress[area.id] || { wins: 0, nextEncounter: 0 };
   const encounter = structuredClone(area.encounters[progress.nextEncounter % area.encounters.length]);
-  const enemyScale = getDifficulty().enemyScale;
+  const enemyScale = getDifficulty().enemyScale * getLevelScale(area);
   if (enemyScale !== 1) {
     encounter.enemies.forEach(enemy => {
       enemy.maxHp = Math.max(1, Math.round(enemy.maxHp * enemyScale));

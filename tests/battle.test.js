@@ -4,7 +4,7 @@
 import './support/setup.mjs';
 import assert from 'node:assert/strict';
 import { test, beforeEach } from 'node:test';
-import { QUESTS, SPELLS, WEAPONS } from '../src/data.js';
+import { AREAS, QUESTS, SPELLS, WEAPONS } from '../src/data.js';
 import { withFixedRandom } from './support/random.mjs';
 import * as state from '../src/state.js';
 
@@ -32,6 +32,25 @@ test('startEncounter opens a battle against the area\'s first encounter with int
   assert.ok(battle.enemies.length > 0);
   battle.enemies.forEach(enemy => {
     assert.ok(battle.intents[enemy.id], `enemy ${enemy.id} should have an intent chosen before the player acts`);
+  });
+});
+
+test('startEncounter toughens enemies 12% per party level above the area\'s recommendedLevel, never below it', () => {
+  const area = AREAS.find(entry => entry.id === 'forest_road');
+  const baseEnemies = area.encounters[0].enemies;
+
+  const atRecommended = enterForestRoad();
+  atRecommended.enemies.forEach((enemy, i) => {
+    assert.equal(enemy.maxHp, baseEnemies[i].maxHp, 'party at the recommended level should face the table as-authored');
+    assert.equal(enemy.atk, baseEnemies[i].atk);
+  });
+
+  state.gameState.party.forEach(member => { member.level = area.recommendedLevel + 3; }); // 3 levels over
+  const overleveled = enterForestRoad();
+  overleveled.enemies.forEach((enemy, i) => {
+    assert.equal(enemy.maxHp, Math.max(1, Math.round(baseEnemies[i].maxHp * 1.36)), '3 levels over should scale enemy hp by 1 + 3*0.12');
+    assert.equal(enemy.hp, enemy.maxHp);
+    assert.equal(enemy.atk, Math.max(1, Math.round(baseEnemies[i].atk * 1.36)));
   });
 });
 
