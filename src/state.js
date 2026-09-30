@@ -8,7 +8,13 @@ export const SAVE_KEY = 'vitalis-rpg-v2-save';
 // Safe/Ready/Danger readiness advice is already for). Keeps encounters
 // matched to the party's actual pace instead of a fixed per-area table, so
 // grinding extra wins for XP doesn't just make the rest of the area trivial.
-const LEVEL_SCALE_PER_LEVEL = 0.12;
+// Tuned against tools/playtest-sim.mjs (N=2000-3000/point): 0.12-0.15 stayed
+// noise-level (<=0.2% loss anywhere); softlocks first appear around 0.35
+// (1.6% of campaigns). 0.20 lands in between -- Blackroot Fen (the area
+// where overleveling is largest, ~2 levels over by endgame) shows a real,
+// clearly-non-noise 1.9% loss rate, Crystal Cave a faint 0.1%, both earlier
+// areas stay effectively risk-free, and softlocks stay at 0/3000.
+const LEVEL_SCALE_PER_LEVEL = 0.20;
 
 function getLevelScale(area) {
   const overLevel = Math.max(0, averagePartyLevel() - area.recommendedLevel);

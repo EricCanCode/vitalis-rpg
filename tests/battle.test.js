@@ -35,7 +35,7 @@ test('startEncounter opens a battle against the area\'s first encounter with int
   });
 });
 
-test('startEncounter toughens enemies 12% per party level above the area\'s recommendedLevel, never below it', () => {
+test('startEncounter toughens enemies 20% per party level above the area\'s recommendedLevel, never below it', () => {
   const area = AREAS.find(entry => entry.id === 'forest_road');
   const baseEnemies = area.encounters[0].enemies;
 
@@ -48,9 +48,9 @@ test('startEncounter toughens enemies 12% per party level above the area\'s reco
   state.gameState.party.forEach(member => { member.level = area.recommendedLevel + 3; }); // 3 levels over
   const overleveled = enterForestRoad();
   overleveled.enemies.forEach((enemy, i) => {
-    assert.equal(enemy.maxHp, Math.max(1, Math.round(baseEnemies[i].maxHp * 1.36)), '3 levels over should scale enemy hp by 1 + 3*0.12');
+    assert.equal(enemy.maxHp, Math.max(1, Math.round(baseEnemies[i].maxHp * 1.6)), '3 levels over should scale enemy hp by 1 + 3*0.20');
     assert.equal(enemy.hp, enemy.maxHp);
-    assert.equal(enemy.atk, Math.max(1, Math.round(baseEnemies[i].atk * 1.36)));
+    assert.equal(enemy.atk, Math.max(1, Math.round(baseEnemies[i].atk * 1.6)));
   });
 });
 
