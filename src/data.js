@@ -655,32 +655,32 @@ export const QUESTS = [
     id: 'secure-road',
     title: 'Secure the Forest Road',
     areaId: 'forest_road',
-    description: 'Win 2 battles on the Forest Road.',
-    requiredWins: 2,
+    description: 'Win 4 battles on the Forest Road.',
+    requiredWins: 4,
     reward: 'Unlocks the Old Ruins'
   },
   {
     id: 'read-ruins',
     title: 'Read the Old Ruins',
     areaId: 'old_ruins',
-    description: 'Win 2 battles in the Old Ruins.',
-    requiredWins: 2,
+    description: 'Win 4 battles in the Old Ruins.',
+    requiredWins: 4,
     reward: 'Unlocks the Crystal Cave'
   },
   {
     id: 'claim-crystal',
     title: 'Claim the Crystal Cave',
     areaId: 'crystal_cave',
-    description: 'Win 2 battles in the Crystal Cave.',
-    requiredWins: 2,
+    description: 'Win 4 battles in the Crystal Cave.',
+    requiredWins: 4,
     reward: 'Closes Chapter One and opens the Blackroot Fen'
   },
   {
     id: 'still-the-fen',
     title: 'Still the Blackroot Fen',
     areaId: 'blackroot_fen',
-    description: 'Win 2 battles in the Blackroot Fen.',
-    requiredWins: 2,
+    description: 'Win 4 battles in the Blackroot Fen.',
+    requiredWins: 4,
     reward: 'Begins Chapter Two'
   }
 ];

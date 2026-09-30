@@ -25,15 +25,17 @@ test('completing an area\'s quest unlocks the next area', () => {
 });
 
 test('getQuestProgress reports partial progress as a percentage, not yet complete', () => {
+  const quest = QUESTS.find(q => q.areaId === 'forest_road');
   state.gameState.areaProgress.forest_road.wins = 1;
   const progress = state.getQuestProgress('secure-road');
   assert.equal(progress.complete, false);
-  assert.equal(progress.percent, 50);
+  assert.equal(progress.percent, Math.round((1 / quest.requiredWins) * 100));
 });
 
 test('getUnlockedAreas grows, in area order, as quests complete', () => {
+  const quest = QUESTS.find(q => q.areaId === 'forest_road');
   assert.deepEqual(state.getUnlockedAreas().map(a => a.id), ['forest_road']);
-  state.gameState.areaProgress.forest_road.wins = 2;
+  state.gameState.areaProgress.forest_road.wins = quest.requiredWins;
   assert.deepEqual(state.getUnlockedAreas().map(a => a.id), ['forest_road', 'old_ruins']);
 });
 
